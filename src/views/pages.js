@@ -238,7 +238,7 @@ function repetitory({ specialists, user }) {
 </section>
 <section class="block">
   <div class="wrap">
-    ${list.length ? `<div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>` : emptyState('Анкеты репетиторов появятся здесь', 'Станьте первым — анкета публикуется после проверки.')}
+    ${list.length ? `<h2 class="sr-only">Анкеты репетиторов</h2><div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>` : emptyState('Анкеты репетиторов появятся здесь', 'Станьте первым — анкета публикуется после проверки.')}
   </div>
 </section>`;
   return page({
@@ -276,7 +276,7 @@ function trenery({ specialists, user }) {
   <div class="wrap">
     ${
       list.length
-        ? `<div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>
+        ? `<h2 class="sr-only">Анкеты тренеров</h2><div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>
       <div class="join-inline"><p>Вы тренер? Создайте анкету — заявки будут приходить в личный кабинет.</p><a class="btn btn-ghost" href="/kabinet/registraciya?kind=trener">Создать анкету тренера</a></div>`
         : `<div class="empty">
       <h2>Набираем тренеров</h2>
@@ -386,7 +386,7 @@ function subjectPage({ subject, specialists, user }) {
 </section>
 <section class="block">
   <div class="wrap">
-    ${list.length ? `<div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>` : emptyState('Специалистов пока нет', 'Загляните позже или создайте свою анкету.')}
+    ${list.length ? `<h2 class="sr-only">${isTrainer ? 'Тренеры' : 'Репетиторы'}: ${esc(subject.title.toLowerCase())}</h2><div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>` : emptyState('Специалистов пока нет', 'Загляните позже или создайте свою анкету.')}
   </div>
 </section>
 <section class="block block--mist">
@@ -494,7 +494,7 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
     ${
       s.gallery && s.gallery.length
         ? `<section class="prof-sec"><h2>${isTrainer ? 'Фото с тренировок' : 'Фото'}</h2><ul class="gallery">${s.gallery
-            .map((g) => `<li><img src="${esc(g.src)}" width="${g.w}" height="${g.h}" alt="${esc(g.alt)}" loading="lazy" decoding="async"></li>`)
+            .map((g) => `<li><img src="${esc(g.small || g.src)}"${g.small ? ` srcset="${esc(g.small)} ${Math.round(g.w / 2)}w, ${esc(g.src)} ${g.w}w" sizes="(max-width: 680px) 45vw, 240px"` : ''} width="${g.w}" height="${g.h}" alt="${esc(g.alt)}" loading="lazy" decoding="async"></li>`)
             .join('')}</ul></section>`
         : ''
     }

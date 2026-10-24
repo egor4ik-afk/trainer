@@ -402,6 +402,7 @@ app.post('/kabinet/anketa', requireUser, requireCsrf, async (req, res) => {
     formats: { ...(s.formats || {}), online: b.online === '1', groups: b.groups === '1', trial: b.trial === '1', atHome: list(b.atHome), travel: list(b.travel) },
     profiUrl: /^https:\/\/(www\.)?profi\.ru\//.test(b.profiUrl || '') ? b.profiUrl.trim() : '',
     updatedAt: new Date().toISOString(),
+    editedAt: new Date().toISOString(),
   };
   if (photo !== (s.photo || '')) {
     // Своя ссылка на фото заменяет загруженные варианты.

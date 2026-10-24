@@ -186,26 +186,35 @@ const DARIA = {
     },
   ],
   gallery: [
-    { src: '/img/darya-gallery-1.webp', w: 552, h: 720, alt: 'Дарья Калашникова показывает выпад из планки на коврике' },
-    { src: '/img/darya-gallery-2.webp', w: 720, h: 710, alt: 'Растяжка на коврике в зале' },
-    { src: '/img/darya-gallery-3.webp', w: 489, h: 720, alt: 'Тренировка на стадионе' },
-    { src: '/img/darya-gallery-4.webp', w: 634, h: 720, alt: 'Выпад с поворотом корпуса на коврике' },
-    { src: '/img/darya-gallery-5.webp', w: 465, h: 720, alt: 'Разминка на беговой дорожке стадиона' },
-    { src: '/img/darya-gallery-6.webp', w: 720, h: 583, alt: 'Беговая тренировка на стадионе' },
+    { src: '/img/darya-gallery-1.webp', small: '/img/darya-gallery-1-sm.webp', w: 552, h: 720, alt: 'Дарья Калашникова показывает выпад из планки на коврике' },
+    { src: '/img/darya-gallery-2.webp', small: '/img/darya-gallery-2-sm.webp', w: 720, h: 710, alt: 'Растяжка на коврике в зале' },
+    { src: '/img/darya-gallery-3.webp', small: '/img/darya-gallery-3-sm.webp', w: 489, h: 720, alt: 'Тренировка на стадионе' },
+    { src: '/img/darya-gallery-4.webp', small: '/img/darya-gallery-4-sm.webp', w: 634, h: 720, alt: 'Выпад с поворотом корпуса на коврике' },
+    { src: '/img/darya-gallery-5.webp', small: '/img/darya-gallery-5-sm.webp', w: 465, h: 720, alt: 'Разминка на беговой дорожке стадиона' },
+    { src: '/img/darya-gallery-6.webp', small: '/img/darya-gallery-6-sm.webp', w: 720, h: 583, alt: 'Беговая тренировка на стадионе' },
   ],
 };
+
+// Версия стартовых анкет. Если анкету ещё не правили в кабинете, при повышении версии
+// она обновляется из этого файла; отредактированные вручную анкеты не трогаем.
+const SEED_VERSION = 2;
+
+async function upsertSeed(data, now) {
+  const cur = db.get('specialists', data.slug);
+  if (!cur) {
+    await db.put('specialists', data.slug, { ...data, seedVersion: SEED_VERSION, createdAt: now, updatedAt: now });
+    console.log(`[seed] specialist ${data.slug} created`);
+  } else if (!cur.editedAt && (cur.seedVersion || 0) < SEED_VERSION) {
+    await db.put('specialists', data.slug, { ...data, status: cur.status, seedVersion: SEED_VERSION, createdAt: cur.createdAt, updatedAt: now });
+    console.log(`[seed] specialist ${data.slug} refreshed to v${SEED_VERSION}`);
+  }
+}
 
 async function seed() {
   const now = new Date().toISOString();
 
-  if (!db.get('specialists', RUSLAN.slug)) {
-    await db.put('specialists', RUSLAN.slug, { ...RUSLAN, createdAt: now, updatedAt: now });
-    console.log('[seed] specialist ruslan-aliev created');
-  }
-  if (!db.get('specialists', DARIA.slug)) {
-    await db.put('specialists', DARIA.slug, { ...DARIA, createdAt: now, updatedAt: now });
-    console.log('[seed] specialist darya-kalashnikova created');
-  }
+  await upsertSeed(RUSLAN, now);
+  await upsertSeed(DARIA, now);
 
   // Учётные записи создаются из переменных окружения при первом запуске.
   // Пароль потом меняется в кабинете — переменная больше не используется.
