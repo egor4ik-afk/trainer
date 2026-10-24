@@ -43,7 +43,12 @@ const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
     for (const [p, code, needle] of [
       ['/', 200, 'Руслан Алиев'],
       ['/repetitory', 200, 'Репетиторы в Москве'],
-      ['/trenery', 200, 'Набираем тренеров'],
+      ['/trenery', 200, 'Дарья Калашникова'],
+      ['/trenery/darya-kalashnikova', 200, 'Фото с тренировок'],
+      ['/zanyatiya/onlayn-trenirovki', 200, 'FAQPage'],
+      ['/llms.txt', 200, '## Специалисты'],
+      ['/llms-full.txt', 200, 'Услуги и цены:'],
+      ['/googlecee020f869c68a59.html', 200, 'google-site-verification: googlecee020f869c68a59.html'],
       ['/zanyatiya', 200, 'Занятия и цены'],
       ['/zanyatiya/ege-geografiya', 200, 'Подготовка к ЕГЭ по географии'],
       ['/repetitory/ruslan-aliev', 200, 'ProfilePage'],
@@ -58,7 +63,12 @@ const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
       ok(r.status === code && t.includes(needle), `${p} → ${r.status}`);
     }
     const trenery = await (await fetch(BASE + '/trenery')).text();
-    ok(trenery.includes('noindex'), '/trenery без анкет закрыта от индексации');
+    ok(!trenery.includes('noindex') && trenery.includes('$12'), '/trenery открыта для индексации, цены в долларах');
+    const daria = await (await fetch(BASE + '/trenery/darya-kalashnikova')).text();
+    ok(daria.includes('Записаться к Дарье Калашниковой') && daria.includes('https://t.me/kalashadasha') && !/instagram/i.test(daria), 'анкета Дарьи: падеж, Telegram, без Instagram');
+    ok(daria.includes('<style>') && !daria.includes('rel="stylesheet"'), 'стили встроены в страницу');
+    const robots = await (await fetch(BASE + '/robots.txt')).text();
+    ok(robots.includes('User-agent: GPTBot') && robots.includes('User-agent: ClaudeBot') && robots.includes('User-agent: YandexAdditional'), 'robots.txt открыт для AI-ботов');
     const home = await (await fetch(BASE + '/')).text();
     ok(/<link rel="canonical" href="https:\/\/trainer\.moscow\/">/.test(home), 'canonical на главной');
     ok(home.includes('og:image'), 'og:image на главной');
@@ -104,7 +114,7 @@ const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
     const shown = await fetch(BASE + '/trenery/anna-smirnova');
     ok(shown.status === 200, 'после публикации анкета видна');
     const tr2 = await (await fetch(BASE + '/trenery')).text();
-    ok(!tr2.includes('noindex') && tr2.includes('Анна Смирнова'), '/trenery открылась для индексации');
+    ok(tr2.includes('Анна Смирнова'), 'новый тренер появился в разделе');
   } catch (err) {
     console.error(err);
     failed++;

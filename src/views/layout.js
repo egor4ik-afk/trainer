@@ -10,7 +10,13 @@ function ruDate(iso) {
   if (Number.isNaN(d.getTime())) return '';
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
-const price = (n) => `${Number(n).toLocaleString('ru-RU')} ₽`;
+// Цена в валюте анкеты: рубли — «1 000 ₽», доллары — «$50», евро — «€50».
+function price(n, currency = 'RUB') {
+  const v = Number(n).toLocaleString('ru-RU');
+  if (currency === 'USD') return `$${v}`;
+  if (currency === 'EUR') return `€${v}`;
+  return `${v} ₽`;
+}
 
 function plural(n, one, few, many) {
   const m10 = n % 10, m100 = n % 100;
@@ -21,6 +27,9 @@ function plural(n, one, few, many) {
 
 let assetVersion = '1';
 const setAssetVersion = (v) => (assetVersion = v);
+// Стили встраиваем в страницу: так нет блокирующего запроса и первый экран рисуется сразу.
+let inlineCss = null;
+const setInlineCss = (css) => (inlineCss = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s*\n\s*/g, '\n'));
 
 const abs = (p) => (p && p.startsWith('http') ? p : SITE.url + (p || '/'));
 
@@ -76,7 +85,7 @@ function footer() {
       <ul><li><a href="/repetitory">Репетиторы</a></li><li><a href="/trenery">Тренеры</a></li><li><a href="/zanyatiya">Занятия</a></li></ul>
     </div>
     <div>
-      <p class="footer-h">Предметы</p>
+      <p class="footer-h">Направления</p>
       <ul>${subj}</ul>
     </div>
     <div>
@@ -99,7 +108,9 @@ function metrika() {
  * opts: title, description, path, image, noindex, section, ld (массив JSON-LD), user, body, bodyClass, ogType
  */
 function page(opts) {
-  const title = opts.title ? `${opts.title}` : `${SITE.title} — ${SITE.name}`;
+  let title = opts.title ? `${opts.title}` : `${SITE.title} — ${SITE.name}`;
+  // Длинный заголовок обрезается в выдаче — тогда жертвуем названием сайта, а не смыслом.
+  if (title.length > 62 && title.endsWith(` | ${SITE.name}`)) title = title.slice(0, -(` | ${SITE.name}`).length);
   const desc = opts.description || SITE.description;
   const url = abs(opts.path || '/');
   const image = abs(opts.image || '/img/og-default.png');
@@ -128,8 +139,8 @@ ${opts.noindex ? '' : `<link rel="canonical" href="${esc(url)}">`}
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(url)}">
 <meta property="og:image" content="${esc(image)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+${/\/img\/og-/.test(image) ? '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">' : ''}
+<meta property="og:image:alt" content="${esc(opts.ogTitle || title)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#16202E">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -138,7 +149,7 @@ ${opts.noindex ? '' : `<link rel="canonical" href="${esc(url)}">`}
 <link rel="manifest" href="/site.webmanifest">
 <link rel="preload" href="/fonts/golos-text-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/unbounded-cyrillic-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/css/site.css?v=${assetVersion}">
+${inlineCss ? `<style>${inlineCss}</style>` : `<link rel="stylesheet" href="/css/site.css?v=${assetVersion}">`}
 ${verif}${ld}
 </head>
 <body class="${opts.bodyClass || ''}">
@@ -152,4 +163,4 @@ ${metrika()}
 </html>`;
 }
 
-module.exports = { esc, ruDate, price, plural, page, breadcrumbs, breadcrumbsLd, abs, setAssetVersion };
+module.exports = { esc, ruDate, price, plural, page, breadcrumbs, breadcrumbsLd, abs, setAssetVersion, setInlineCss };

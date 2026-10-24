@@ -42,6 +42,7 @@ app.use((req, res, next) => {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'SAMEORIGIN',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    ...(IS_PROD ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
   });
   next();
 });
@@ -53,7 +54,8 @@ app.use(
     index: false,
     setHeaders(res, file) {
       if (/\.(woff2|png|jpg|webp|svg|ico)$/.test(file)) res.set('Cache-Control', 'public, max-age=2592000, immutable');
-      else if (/\.(css|js)$/.test(file)) res.set('Cache-Control', 'public, max-age=604800');
+      else if (/\.(css|js)$/.test(file)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      else if (/\.(webmanifest|txt|html)$/.test(file)) res.set('Cache-Control', 'public, max-age=86400');
     },
   })
 );
@@ -362,15 +364,23 @@ app.post('/kabinet/anketa', requireUser, requireCsrf, async (req, res) => {
   if (!s) return res.redirect(303, '/kabinet/anketa');
 
   // Направление услуги сохраняем по названию; новым — подбираем по словам.
-  const prevSubj = Object.fromEntries((s.services || []).map((x) => [x.title, x.subject]));
-  const prevExtra = new Set((s.services || []).filter((x) => x.extra).map((x) => x.title));
-  const subjects = [].concat(b.subjects || []).filter((x) => subjectBySlug(x));
+  const prev = Object.fromEntries((s.services || []).map((x) => [x.title, x]));
+  const subjects = [].concat(b.subjects || []).filter((x) => subjectBySlug(x) && subjectBySlug(x).kind === s.kind);
   const services = splitLines(b.services).map((line) => {
-    const [title, p] = line.split('|').map((x) => x.trim());
-    const guess = /егэ/i.test(title) ? 'ege-geografiya' : /огэ|гиа/i.test(title) ? 'oge-geografiya' : subjects[0] || null;
-    const extra = prevExtra.has(title) || /^провер/i.test(title);
-    return { title: title.slice(0, 120), price: Math.max(0, parseInt(String(p || '').replace(/\D/g, ''), 10) || 0), unit: '60 мин', subject: prevSubj[title] || guess, ...(extra ? { extra: true } : {}) };
+    const [title, p, unit] = line.split('|').map((x) => x.trim());
+    const old = prev[title] || {};
+    const guess = subjects.find((slug) => (/егэ/i.test(title) && /^ege-/.test(slug)) || (/огэ|гиа/i.test(title) && /^oge-/.test(slug))) || subjects[0] || null;
+    const extra = old.extra || /^провер/i.test(title);
+    return {
+      title: title.slice(0, 120),
+      price: Math.max(0, parseInt(String(p || '').replace(/\D/g, ''), 10) || 0),
+      unit: (unit || old.unit || '60 мин').slice(0, 30),
+      subject: old.subject && subjects.includes(old.subject) ? old.subject : guess,
+      ...(old.note ? { note: old.note } : {}),
+      ...(extra ? { extra: true } : {}),
+    };
   });
+  const telegram = String(b.telegram || '').trim();
   const photo = String(b.photo || '').trim();
   const updated = {
     ...s,
@@ -379,14 +389,17 @@ app.post('/kabinet/anketa', requireUser, requireCsrf, async (req, res) => {
     grades: String(b.grades || '').trim().slice(0, 60),
     headline: String(b.headline || '').trim().slice(0, 300),
     about: String(b.about || '').trim().slice(0, 3000),
-    subjects: s.kind === 'repetitor' ? subjects : s.subjects || [],
+    subjects,
+    focus: splitLines(b.focus),
+    currency: ['RUB', 'USD', 'EUR'].includes(b.currency) ? b.currency : 'RUB',
+    telegram: /^https:\/\/t\.me\/[A-Za-z0-9_]{4,}$/.test(telegram) ? telegram : /^@?[A-Za-z0-9_]{4,}$/.test(telegram) ? `https://t.me/${telegram.replace('@', '')}` : '',
     results: splitLines(b.results),
     method: splitLines(b.method),
     services,
     education: titled(b.education).map((x, i) => ({ ...x, verified: !!(s.education && s.education[i] && s.education[i].title === x.title && s.education[i].verified) })),
     experience: titled(b.experience).map((x, i) => ({ ...x, verified: !!(s.experience && s.experience[i] && s.experience[i].title === x.title && s.experience[i].verified) })),
     achievements: titled(b.achievements).map((x, i) => ({ ...x, verified: !!(s.achievements && s.achievements[i] && s.achievements[i].title === x.title && s.achievements[i].verified) })),
-    formats: { online: b.online === '1', groups: b.groups === '1', trial: b.trial === '1', atHome: list(b.atHome), travel: list(b.travel) },
+    formats: { ...(s.formats || {}), online: b.online === '1', groups: b.groups === '1', trial: b.trial === '1', atHome: list(b.atHome), travel: list(b.travel) },
     profiUrl: /^https:\/\/(www\.)?profi\.ru\//.test(b.profiUrl || '') ? b.profiUrl.trim() : '',
     updatedAt: new Date().toISOString(),
   };
@@ -398,6 +411,7 @@ app.post('/kabinet/anketa', requireUser, requireCsrf, async (req, res) => {
     delete updated.photoSquareWebp;
   }
   await db.put('specialists', s.slug, updated);
+  if (updated.status === 'published') pingIndexNow(changedUrls(updated));
   res.redirect(303, `/kabinet/anketa?flash=saved${req.user.role === 'admin' ? `&id=${encodeURIComponent(s.slug)}` : ''}`);
 });
 
@@ -440,35 +454,113 @@ app.post('/kabinet/moderaciya/:slug', requireUser, requireCsrf, async (req, res,
   const s = db.get('specialists', req.params.slug);
   if (s && ['published', 'hidden', 'review'].includes(req.body.status)) {
     await db.put('specialists', s.slug, { ...s, status: req.body.status, updatedAt: new Date().toISOString() });
-    if (req.body.status === 'published') pingIndexNow([SITE.url + views.profilePath(s)]);
+    pingIndexNow(changedUrls(s));
   }
   res.redirect(303, '/kabinet/moderaciya?flash=moderated');
 });
 
 /* ---------- SEO: robots, sitemap, IndexNow ---------- */
 
+// Поисковые и AI-боты: открыто всё, кроме кабинета и служебных адресов.
+const AI_BOTS = [
+  'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',
+  'ClaudeBot', 'Claude-SearchBot', 'Claude-User',
+  'PerplexityBot', 'Perplexity-User',
+  'Google-Extended', 'Applebot-Extended',
+  'YandexAdditional', 'YandexAdditionalBot',
+  'Bingbot', 'DuckAssistBot', 'MistralAI-User', 'cohere-ai',
+];
+const PRIVATE_RULES = ['Allow: /', 'Disallow: /kabinet', 'Disallow: /zayavka', 'Disallow: /*?sent=', 'Disallow: /*?preview='];
+
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
     [
       'User-agent: *',
-      'Allow: /',
-      'Disallow: /kabinet',
-      'Disallow: /zayavka',
-      'Disallow: /*?sent=',
-      'Disallow: /*?preview=',
+      ...PRIVATE_RULES,
       '',
       'User-agent: Yandex',
-      'Allow: /',
-      'Disallow: /kabinet',
-      'Disallow: /zayavka',
+      ...PRIVATE_RULES,
       'Clean-param: sent&preview /',
       'Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid /',
+      '',
+      'User-agent: Googlebot',
+      ...PRIVATE_RULES,
+      '',
+      ...AI_BOTS.map((b) => `User-agent: ${b}`),
+      ...PRIVATE_RULES,
       '',
       `Sitemap: ${SITE.url}/sitemap.xml`,
       '',
     ].join('\n')
   );
 });
+
+/* ---------- llms.txt: краткая выжимка сайта для AI-ассистентов ---------- */
+
+const { price: fmtPrice } = layout;
+function specialistFacts(s, full) {
+  const cur = s.currency || 'RUB';
+  const f = s.formats || {};
+  const where = [
+    f.online && 'онлайн',
+    f.atHome && f.atHome.length && `у специалиста: ${f.atHome.join(', ')}`,
+    f.travel && f.travel.length && `выезд: ${f.travel.join(', ')}`,
+    f.offline && f.offline.length && `очно: ${f.offline.join(', ')}`,
+  ].filter(Boolean);
+  const from = views.cheapest(s);
+  const subj = (s.subjects || []).map(subjectBySlug).filter(Boolean).map((x) => x.title);
+  const lines = [
+    `## ${s.name} — ${s.role.toLowerCase()}`,
+    '',
+    `Анкета: ${SITE.url}${views.profilePath(s)}`,
+    s.headline && `Коротко: ${s.headline}.`,
+    subj.length && `Направления: ${subj.join(', ')}.`,
+    from && `Цена: от ${fmtPrice(from.price, cur)} / ${from.unit}.`,
+    where.length && `Формат: ${where.join('; ')}.`,
+    s.reviewsCount && `Отзывы: ${s.reviewsCount}${Number(s.rating) > 0 ? `, средняя оценка ${Number(s.rating).toFixed(1)} из 5` : ''}.`,
+    `Записаться: форма на странице анкеты (${SITE.url}${views.profilePath(s)}#zapis)${s.telegram ? ` или Telegram ${s.telegram}` : ''}.`,
+  ].filter(Boolean);
+  if (full) {
+    if (s.about) lines.push('', s.about);
+    if (s.focus && s.focus.length) lines.push('', 'С чем работает:', ...s.focus.map((x) => `- ${x}`));
+    if (s.results && s.results.length) lines.push('', 'Результаты учеников:', ...s.results.map((x) => `- ${x}`));
+    if (s.services && s.services.length) lines.push('', 'Услуги и цены:', ...s.services.map((x) => `- ${x.title}: ${x.price > 0 ? `от ${fmtPrice(x.price, cur)} / ${x.unit}` : 'бесплатно'}`));
+    if (s.education && s.education.length) lines.push('', 'Образование:', ...s.education.map((x) => `- ${x.title}${x.years ? ` (${x.years})` : ''}`));
+    if (s.experience && s.experience.length) lines.push('', 'Опыт:', ...s.experience.map((x) => `- ${x.title}${x.years ? ` (${x.years})` : ''}`));
+    if (s.achievements && s.achievements.length) lines.push('', 'Достижения:', ...s.achievements.map((x) => `- ${x.title}${x.years ? ` (${x.years})` : ''}`));
+  }
+  return lines.join('\n');
+}
+
+function llmsText(full) {
+  const list = published();
+  const c = counts(list);
+  const out = [
+    `# ${SITE.name}`,
+    '',
+    `> Каталог репетиторов и тренеров в Москве и онлайн. У каждого специалиста — анкета с образованием, ценами, форматами занятий, отзывами и формой записи.`,
+    '',
+    'Сайт подходит, чтобы найти репетитора по школьным предметам и подготовке к ОГЭ и ЕГЭ или персонального тренера (в том числе для онлайн-тренировок). Цены указаны в анкетах; запись — через форму на странице специалиста.',
+    '',
+    '## Разделы',
+    '',
+    `- [Репетиторы](${SITE.url}/repetitory): ${c.repetitor} ${c.repetitor === 1 ? 'анкета' : 'анкет(ы)'}`,
+    `- [Тренеры](${SITE.url}/trenery): ${c.trener} ${c.trener === 1 ? 'анкета' : 'анкет(ы)'}`,
+    `- [Занятия и цены](${SITE.url}/zanyatiya)`,
+    ...SUBJECTS.filter((x) => c.bySubject[x.slug]).map((x) => `- [${x.title}](${SITE.url}/zanyatiya/${x.slug}): ${x.intro}`),
+    '',
+    '## Специалисты',
+    '',
+    ...list.map((s) => `- [${s.name} — ${s.role.toLowerCase()}](${SITE.url}${views.profilePath(s)}): ${s.headline}`),
+    '',
+  ];
+  if (full) out.push(...list.map((s) => specialistFacts(s, true) + '\n'));
+  else out.push('## Подробнее', '', `- [Полная версия для AI-ассистентов](${SITE.url}/llms-full.txt): все анкеты с ценами, образованием и форматами`, '');
+  return out.join('\n');
+}
+
+app.get('/llms.txt', (req, res) => res.type('text/plain; charset=utf-8').send(llmsText(false)));
+app.get('/llms-full.txt', (req, res) => res.type('text/plain; charset=utf-8').send(llmsText(true)));
 
 function sitemapUrls() {
   const list = published();
@@ -505,25 +597,38 @@ app.get('/sitemap.xml', (req, res) => {
 
 app.get(`/${INDEXNOW_KEY}.txt`, (req, res) => res.type('text/plain').send(INDEXNOW_KEY));
 
+// IndexNow: Яндекс напрямую и общий узел, который передаёт адреса Bing и другим поисковикам.
+const INDEXNOW_ENDPOINTS = ['https://yandex.com/indexnow', 'https://api.indexnow.org/indexnow'];
 async function pingIndexNow(urls) {
-  if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1') return;
-  try {
-    const r = await fetch('https://yandex.com/indexnow', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ host: SITE.host, key: INDEXNOW_KEY, keyLocation: `${SITE.url}/${INDEXNOW_KEY}.txt`, urlList: urls }),
-      signal: AbortSignal.timeout(10000),
-    });
-    console.log(`[indexnow] ${urls.length} url(s) → ${r.status}`);
-  } catch (err) {
-    console.error('[indexnow] failed:', err.message);
-  }
+  if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1' || !urls.length) return;
+  const body = JSON.stringify({ host: SITE.host, key: INDEXNOW_KEY, keyLocation: `${SITE.url}/${INDEXNOW_KEY}.txt`, urlList: [...new Set(urls)] });
+  await Promise.all(
+    INDEXNOW_ENDPOINTS.map(async (endpoint) => {
+      try {
+        const r = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' }, body, signal: AbortSignal.timeout(10000) });
+        console.log(`[indexnow] ${new URL(endpoint).host}: ${urls.length} url(s) → ${r.status}`);
+      } catch (err) {
+        console.error(`[indexnow] ${endpoint} failed:`, err.message);
+      }
+    })
+  );
 }
 
-// Сообщаем Яндексу об изменениях один раз после запуска новой версии.
+// Адреса, которые меняются вместе с анкетой: сама анкета, раздел, направления, главная.
+function changedUrls(s) {
+  return [
+    views.profilePath(s),
+    s.kind === 'trener' ? '/trenery' : '/repetitory',
+    '/',
+    '/zanyatiya',
+    ...(s.subjects || []).map((x) => `/zanyatiya/${x}`),
+  ].map((p) => SITE.url + p);
+}
+
+// После запуска сообщаем поисковикам о карте сайта, если она изменилась с прошлого раза.
 async function announceOnStart() {
   if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1') return;
-  const version = layout.ASSET_VERSION;
+  const version = crypto.createHash('sha1').update(JSON.stringify(sitemapUrls())).update(layout.ASSET_VERSION).digest('hex').slice(0, 12);
   const last = db.get('meta', 'indexnow');
   if (last && last.version === version) return;
   await pingIndexNow(sitemapUrls().map((u) => SITE.url + u.loc));
@@ -563,6 +668,7 @@ async function main() {
   }
   await seed();
   const v = assetHash();
+  layout.setInlineCss(fs.readFileSync(path.join(PUBLIC, 'css', 'site.css'), 'utf8'));
   layout.setAssetVersion(v);
   layout.ASSET_VERSION = v;
   app.listen(PORT, () => {

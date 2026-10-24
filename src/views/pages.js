@@ -4,11 +4,27 @@ const { SITE, SECTIONS, SUBJECTS, TRAINER_DIRECTIONS, subjectBySlug } = require(
 
 /* ---------- helpers ---------- */
 
-// «От» считаем по основным занятиям: дополнительные услуги (проверка ДЗ) не учитываем.
+// «От» считаем по основным занятиям: дополнительные и бесплатные услуги не учитываем.
+const mainServices = (s, subject) => (s.services || []).filter((x) => x.price > 0 && !x.extra && (!subject || x.subject === subject));
+function cheapest(s, subject) {
+  const list = mainServices(s, subject).length ? mainServices(s, subject) : mainServices(s);
+  if (!list.length) return null;
+  const sv = list.reduce((a, b) => (b.price < a.price ? b : a));
+  return { ...sv, currency: s.currency || 'RUB' };
+}
 const minPrice = (s, subject) => {
-  const list = (s.services || []).filter((x) => x.price > 0 && !x.extra && (!subject || x.subject === subject));
-  return list.length ? Math.min(...list.map((x) => x.price)) : null;
+  const c = cheapest(s, subject);
+  return c ? c.price : null;
 };
+// Самое дешёвое из нескольких специалистов (для строк «Предмет — от …»).
+function cheapestOf(list, subject) {
+  const all = list.map((s) => cheapest(s, subject)).filter(Boolean);
+  return all.length ? all.reduce((a, b) => (b.price < a.price ? b : a)) : null;
+}
+const money = (sv) => price(sv.price, sv.currency);
+const svPrice = (sv, cur) => (sv.price > 0 ? `от ${price(sv.price, cur)}` : 'бесплатно');
+const hasRating = (s) => Number(s.rating) > 0;
+const reviewsWord = (n) => `${n} ${plural(n, 'отзыв', 'отзыва', 'отзывов')}`;
 const profilePath = (s) => `/${s.kind === 'trener' ? 'trenery' : 'repetitory'}/${s.slug}`;
 
 function stars(rating) {
@@ -26,7 +42,7 @@ function photo(s, variant, { eager = false, w, h } = {}) {
     const initials = (s.name || '?').split(/\s+/).map((p) => p[0]).slice(0, 2).join('');
     return `<span class="avatar-fallback${square ? ' sq' : ''}" aria-hidden="true">${esc(initials)}</span>`;
   }
-  const dims = square ? { w: w || 240, h: h || 240 } : { w: w || 320, h: h || 427 };
+  const dims = square ? { w: w || 240, h: h || 240 } : { w: w || s.photoWidth || 320, h: h || s.photoHeight || 427 };
   const attrs = `width="${dims.w}" height="${dims.h}" alt="${esc(s.name)}, ${esc((s.role || '').toLowerCase())}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async"`;
   return webp
     ? `<picture><source srcset="${esc(webp)}" type="image/webp"><img src="${esc(src)}" ${attrs}></picture>`
@@ -39,11 +55,12 @@ function formatsLine(s) {
   if (f.online) parts.push('онлайн');
   if (f.atHome && f.atHome.length) parts.push(`у себя: ${f.atHome.join(', ')}`);
   if (f.travel && f.travel.length) parts.push(`выезд: ${f.travel.join(', ')}`);
+  if (f.offline && f.offline.length) parts.push(`очно: ${f.offline.join(', ')}`);
   return parts.join('; ');
 }
 
 function specialistCard(s, { hero = false } = {}) {
-  const from = minPrice(s);
+  const from = cheapest(s);
   const subj = (s.subjects || []).map(subjectBySlug).filter(Boolean);
   const H = hero ? 'h2' : 'h3';
   return `<article class="spec-card${hero ? ' spec-card--hero' : ''}">
@@ -52,14 +69,14 @@ function specialistCard(s, { hero = false } = {}) {
     <div class="spec-id">
       <${H} class="spec-name"><a href="${profilePath(s)}">${esc(s.name)}</a></${H}>
       <p class="spec-role">${esc(s.role)}${s.grades ? `, ${esc(s.grades)}` : ''}</p>
-      ${s.reviewsCount ? `<p class="spec-rating">${stars(s.rating)}<span><b>${Number(s.rating).toFixed(1).replace('.', ',')}</b> · ${s.reviewsCount} ${plural(s.reviewsCount, 'отзыв', 'отзыва', 'отзывов')}</span></p>` : ''}
+      ${s.reviewsCount ? `<p class="spec-rating">${hasRating(s) ? `${stars(s.rating)}<span><b>${Number(s.rating).toFixed(1).replace('.', ',')}</b> · ${reviewsWord(s.reviewsCount)}</span>` : `<span>${reviewsWord(s.reviewsCount)}</span>`}</p>` : ''}
     </div>
   </div>
   <p class="spec-headline">${esc(s.headline)}</p>
   ${subj.length ? `<ul class="chips">${subj.map((x) => `<li><a href="/zanyatiya/${x.slug}">${esc(x.title)}</a></li>`).join('')}</ul>` : ''}
   <p class="spec-formats">${esc(formatsLine(s))}</p>
   <div class="spec-foot">
-    ${from ? `<p class="spec-price">от <b>${price(from)}</b> <span>за 60 мин</span></p>` : ''}
+    ${from ? `<p class="spec-price">от <b>${money(from)}</b> <span>/ ${esc(from.unit)}</span></p>` : ''}
     <a class="btn btn-primary" href="${profilePath(s)}#zapis">Записаться</a>
   </div>
 </article>`;
@@ -74,7 +91,7 @@ function route(stations, { label, compact = false } = {}) {
 }
 
 const reviewItem = (r) => `<li class="review">
-  <div class="review-head">${stars(r.rating)}<p><b>${esc(r.author)}</b> <span class="muted">· ${esc(r.service)} · ${ruDate(r.date)}</span></p></div>
+  <div class="review-head">${r.rating ? stars(r.rating) : ''}<p><b>${esc(r.author)}</b>${[r.service, r.date ? ruDate(r.date) : ''].filter(Boolean).map((x) => ` <span class="muted">· ${esc(x)}</span>`).join('')}</p></div>
   ${r.text ? `<p class="review-text">${esc(r.text)}</p>` : '<p class="review-text muted">Оценка без комментария.</p>'}
   ${r.reply ? `<div class="review-reply"><p class="muted">Ответ специалиста</p><p>${esc(r.reply)}</p></div>` : ''}
 </li>`;
@@ -85,6 +102,7 @@ function home({ specialists, user, counts }) {
   const featured = specialists.find((s) => s.featured) || specialists[0];
   const subjects = SUBJECTS.filter((x) => counts.bySubject[x.slug]);
   const textReviews = featured ? (featured.reviews || []).filter((r) => r.text && r.text.length > 20) : [];
+  const trainers = specialists.filter((s) => s.kind === 'trener' && s !== featured).slice(0, 4);
 
   const body = `
 <section class="hero">
@@ -113,10 +131,21 @@ ${
     <ul class="price-rows">${subjects
       .map((x) => {
         const list = specialists.filter((s) => (s.subjects || []).includes(x.slug));
-        const from = Math.min(...list.map((s) => minPrice(s, x.slug) || minPrice(s)).filter(Boolean));
-        return `<li><a href="/zanyatiya/${x.slug}"><span class="pr-title">${esc(x.title)}</span><span class="pr-meta">${list.length} ${plural(list.length, 'специалист', 'специалиста', 'специалистов')}</span><span class="pr-price">от ${price(from)}</span></a></li>`;
+        const from = cheapestOf(list, x.slug);
+        return `<li><a href="/zanyatiya/${x.slug}"><span class="pr-title">${esc(x.title)}</span><span class="pr-meta">${list.length} ${plural(list.length, 'специалист', 'специалиста', 'специалистов')}</span><span class="pr-price">${from ? `от ${money(from)}` : ''}</span></a></li>`;
       })
       .join('')}</ul>
+  </div>
+</section>`
+    : ''
+}
+
+${
+  trainers.length
+    ? `<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Тренеры</h2><a class="link-more" href="/trenery">Все тренеры</a></div>
+    <div class="spec-list">${trainers.map((s) => specialistCard(s)).join('')}</div>
   </div>
 </section>`
     : ''
@@ -236,15 +265,19 @@ function trenery({ specialists, user }) {
 <section class="page-head line-green">
   <div class="wrap">
     ${breadcrumbs(crumbs)}
-    <h1>Тренеры в Москве</h1>
-    <p class="lead">Персональные тренировки для взрослых и детей: в зале, на улице, дома или онлайн.</p>
+    <h1>Тренеры в Москве и онлайн</h1>
+    <p class="lead">Персональные тренировки для взрослых: онлайн из любого города, в зале или на открытом воздухе.</p>
+    <ul class="chips chips--lg">${SUBJECTS.filter((x) => x.kind === 'trener')
+      .map((x) => `<li><a href="/zanyatiya/${x.slug}">${esc(x.title)}</a></li>`)
+      .join('')}</ul>
   </div>
 </section>
 <section class="block">
   <div class="wrap">
     ${
       list.length
-        ? `<div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>`
+        ? `<div class="spec-list">${list.map((s) => specialistCard(s)).join('')}</div>
+      <div class="join-inline"><p>Вы тренер? Создайте анкету — заявки будут приходить в личный кабинет.</p><a class="btn btn-ghost" href="/kabinet/registraciya?kind=trener">Создать анкету тренера</a></div>`
         : `<div class="empty">
       <h2>Набираем тренеров</h2>
       <p>Раздел только открылся. Если вы тренер, создайте анкету — она появится здесь после проверки.</p>
@@ -255,12 +288,12 @@ function trenery({ specialists, user }) {
   </div>
 </section>`;
   return page({
-    title: `Тренеры в Москве — персональные тренировки | ${SITE.name}`,
-    description: 'Персональные тренеры в Москве: фитнес, йога, плавание, единоборства, детский спорт. Анкеты, цены и отзывы.',
+    title: `Персональные тренеры в Москве и онлайн — цены, отзывы | ${SITE.name}`,
+    description: `Персональные фитнес-тренеры онлайн и очно: похудение, набор массы, коррекция осанки, фитнес для беременных. ${list.length} ${plural(list.length, 'анкета', 'анкеты', 'анкет')} с ценами и отзывами.`,
     path: '/trenery',
     section: 'trenery',
     noindex: list.length === 0,
-    ld: [breadcrumbsLd(crumbs)],
+    ld: [breadcrumbsLd(crumbs), itemListLd(list)],
     user,
     body,
   });
@@ -276,8 +309,8 @@ function zanyatiya({ specialists, user }) {
   const rows = SUBJECTS.map((x) => {
     const list = specialists.filter((s) => (s.subjects || []).includes(x.slug));
     if (!list.length) return '';
-    const from = Math.min(...list.map((s) => minPrice(s, x.slug) || minPrice(s)).filter(Boolean));
-    return `<li><a href="/zanyatiya/${x.slug}"><span class="pr-title">${esc(x.title)}</span><span class="pr-meta">${esc(x.intro)}</span><span class="pr-price">от ${price(from)}</span></a></li>`;
+    const from = cheapestOf(list, x.slug);
+    return `<li><a href="/zanyatiya/${x.slug}"><span class="pr-title">${esc(x.title)}</span><span class="pr-meta">${esc(x.intro)}</span><span class="pr-price">${from ? `от ${money(from)}` : ''}</span></a></li>`;
   }).join('');
 
   const services = specialists.flatMap((s) => (s.services || []).map((sv) => ({ ...sv, s })));
@@ -287,12 +320,12 @@ function zanyatiya({ specialists, user }) {
   <div class="wrap">
     ${breadcrumbs(crumbs)}
     <h1>Занятия и цены</h1>
-    <p class="lead">Что можно изучать с репетиторами и тренерами trainer.moscow и сколько это стоит.</p>
+    <p class="lead">Предметы и тренировки с репетиторами и тренерами trainer.moscow — и сколько это стоит.</p>
   </div>
 </section>
 <section class="block">
   <div class="wrap">
-    <h2>Предметы</h2>
+    <h2>Предметы и направления</h2>
     <ul class="price-rows price-rows--wide">${rows}</ul>
   </div>
 </section>
@@ -301,7 +334,7 @@ function zanyatiya({ specialists, user }) {
     <h2>Форматы</h2>
     <div class="formats">
       <div><h3>Онлайн</h3><p>Видеосвязь, общая доска и электронные материалы. Подходит, если неудобно ездить.</p></div>
-      <div><h3>У специалиста</h3><p>Занятие в кабинете репетитора или в зале тренера.</p></div>
+      <div><h3>У специалиста</h3><p>Занятие в кабинете репетитора, в зале или в парке с тренером.</p></div>
       <div><h3>С выездом</h3><p>Специалист приезжает к ученику домой — по Москве и ближнему Подмосковью.</p></div>
       <div><h3>Мини-группы</h3><p>2–4 ученика одного уровня. Дешевле индивидуальных занятий.</p></div>
     </div>
@@ -313,14 +346,14 @@ function zanyatiya({ specialists, user }) {
     <div class="table-wrap"><table class="price-table">
       <thead><tr><th scope="col">Услуга</th><th scope="col">Специалист</th><th scope="col">Цена</th></tr></thead>
       <tbody>${services
-        .map((sv) => `<tr><td>${esc(sv.title)}</td><td><a href="${profilePath(sv.s)}">${esc(sv.s.name)}</a></td><td class="nowrap">от ${price(sv.price)} / ${esc(sv.unit)}</td></tr>`)
+        .map((sv) => `<tr><td>${esc(sv.title)}</td><td><a href="${profilePath(sv.s)}">${esc(sv.s.name)}</a></td><td class="nowrap">${svPrice(sv, sv.s.currency)}${sv.price > 0 ? ` / ${esc(sv.unit)}` : ''}</td></tr>`)
         .join('')}</tbody>
     </table></div>
   </div>
 </section>`;
   return page({
-    title: `Занятия с репетитором: предметы и цены | ${SITE.name}`,
-    description: 'Предметы и цены занятий с репетиторами в Москве: география, ОГЭ и ЕГЭ по географии. Онлайн, очно, с выездом и в мини-группах.',
+    title: `Занятия с репетиторами и тренерами: цены | ${SITE.name}`,
+    description: 'Цены на занятия с репетиторами и тренерами: география, ОГЭ и ЕГЭ по географии, персональные и онлайн-тренировки. Онлайн, очно и в мини-группах.',
     path: '/zanyatiya',
     section: 'zanyatiya',
     ld: [breadcrumbsLd(crumbs)],
@@ -331,23 +364,24 @@ function zanyatiya({ specialists, user }) {
 
 function subjectPage({ subject, specialists, user }) {
   const list = specialists.filter((s) => (s.subjects || []).includes(subject.slug));
-  const from = list.length ? Math.min(...list.map((s) => minPrice(s, subject.slug) || minPrice(s)).filter(Boolean)) : null;
+  const from = cheapestOf(list, subject.slug);
+  const isTrainer = subject.kind === 'trener';
   const crumbs = [
     { name: 'Главная', path: '/' },
     { name: 'Занятия', path: '/zanyatiya' },
     { name: subject.title, path: `/zanyatiya/${subject.slug}` },
   ];
   const faq = [
-    ['Сколько стоит занятие?', from ? `От ${price(from)} за 60 минут — по ценам из анкет специалистов. Точная стоимость зависит от формата и цели.` : 'Цены указаны в анкетах специалистов.'],
-    ['Можно ли заниматься онлайн?', 'Да. Онлайн-занятия проходят по видеосвязи с общей доской; формат указан в каждой анкете.'],
-    ['С чего начать?', 'Оставьте заявку в анкете специалиста. Он свяжется с вами, уточнит цель и предложит время пробного занятия.'],
+    [isTrainer ? 'Сколько стоят тренировки?' : 'Сколько стоит занятие?', from ? `От ${money(from)} / ${from.unit} — по ценам из анкет специалистов. Точная стоимость зависит от формата и цели.` : 'Цены указаны в анкетах специалистов.'],
+    [isTrainer ? 'Можно ли тренироваться онлайн?' : 'Можно ли заниматься онлайн?', isTrainer ? 'Да. Тренер составляет план, ставит технику по видеосвязи и даёт обратную связь; формат указан в каждой анкете.' : 'Да. Онлайн-занятия проходят по видеосвязи с общей доской; формат указан в каждой анкете.'],
+    ['С чего начать?', isTrainer ? 'Оставьте заявку в анкете тренера. Он свяжется с вами, уточнит цель и ограничения по здоровью и предложит формат.' : 'Оставьте заявку в анкете специалиста. Он свяжется с вами, уточнит цель и предложит время пробного занятия.'],
   ];
   const body = `
 <section class="page-head line-orange">
   <div class="wrap">
     ${breadcrumbs(crumbs)}
     <h1>${esc(subject.h1)}</h1>
-    <p class="lead">${esc(subject.intro)}${from ? ` Цена — от ${price(from)} за 60 минут.` : ''}</p>
+    <p class="lead">${esc(subject.intro)}${from ? ` Цена — от ${money(from)} / ${esc(from.unit)}.` : ''}</p>
   </div>
 </section>
 <section class="block">
@@ -367,7 +401,7 @@ function subjectPage({ subject, specialists, user }) {
     path: `/zanyatiya/${subject.slug}`,
     section: 'zanyatiya',
     noindex: list.length === 0,
-    ld: [breadcrumbsLd(crumbs), itemListLd(list)],
+    ld: [breadcrumbsLd(crumbs), itemListLd(list), faqLd(faq)],
     user,
     body,
   });
@@ -383,9 +417,11 @@ function profile({ s, user, sent, error, form = {}, preview = false }) {
     { name: section.title, path: `/${section.slug}` },
     { name: s.name, path },
   ];
-  const from = minPrice(s);
+  const from = cheapest(s);
+  const cur = s.currency || 'RUB';
   const subj = (s.subjects || []).map(subjectBySlug).filter(Boolean);
   const f = s.formats || {};
+  const isTrainer = s.kind === 'trener';
   const verified = (x) => (x.verified ? '<span class="ok" title="Подтверждено документами">документы проверены</span>' : '');
   const listBlock = (title, items, id) =>
     items && items.length
@@ -402,11 +438,12 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
     <div class="prof-photo">${photo(s, 'full', { eager: true })}</div>
     <h1 class="prof-name">${esc(s.name)}</h1>
     <p class="prof-role">${esc(s.role)}${s.grades ? `, ${esc(s.grades)}` : ''}</p>
-    ${s.reviewsCount ? `<p class="spec-rating">${stars(s.rating)}<a href="#otzyvy"><b>${Number(s.rating).toFixed(1).replace('.', ',')}</b> · ${s.reviewsCount} ${plural(s.reviewsCount, 'отзыв', 'отзыва', 'отзывов')}</a></p>` : ''}
+    ${s.reviewsCount ? `<p class="spec-rating">${hasRating(s) ? stars(s.rating) : ''}<a href="#otzyvy">${hasRating(s) ? `<b>${Number(s.rating).toFixed(1).replace('.', ',')}</b> · ` : ''}${reviewsWord(s.reviewsCount)}</a></p>` : ''}
     ${s.badges && s.badges.length ? `<ul class="badges">${s.badges.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
-    ${from ? `<p class="prof-price">от <b>${price(from)}</b> за 60 мин</p>` : ''}
-    <a class="btn btn-primary btn-block" href="#zapis">Записаться на занятие</a>
-    ${f.trial ? '<p class="muted small center">Первое занятие — пробное, с диагностикой уровня</p>' : ''}
+    ${from ? `<p class="prof-price">от <b>${money(from)}</b> / ${esc(from.unit)}</p>` : ''}
+    <a class="btn btn-primary btn-block" href="#zapis">${isTrainer ? 'Записаться на тренировку' : 'Записаться на занятие'}</a>
+    ${s.telegram ? `<a class="btn btn-ghost btn-block btn-tg" href="${esc(s.telegram)}" rel="nofollow noopener" target="_blank">Написать в Telegram</a>` : ''}
+    ${f.trial ? `<p class="muted small center">${esc(f.trialNote || 'Первое занятие — пробное, с диагностикой уровня')}</p>` : ''}
   </aside>
 
   <div class="prof-main">
@@ -416,6 +453,11 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
       ${subj.length ? `<ul class="chips">${subj.map((x) => `<li><a href="/zanyatiya/${x.slug}">${esc(x.title)}</a></li>`).join('')}</ul>` : ''}
     </section>
 
+    ${
+      s.focus && s.focus.length
+        ? `<section class="prof-sec"><h2>С чем работаю</h2><ul class="focus">${s.focus.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${s.focusNote ? `<p class="muted small">${esc(s.focusNote)}</p>` : ''}</section>`
+        : ''
+    }
     ${
       s.results && s.results.length
         ? `<section class="prof-sec"><h2>Результаты учеников</h2><ul class="results">${s.results.map((r) => `<li>${esc(r)}</li>`).join('')}</ul></section>`
@@ -433,8 +475,9 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
     <section class="prof-sec" id="ceny">
       <h2>Услуги и цены</h2>
       <ul class="services">${(s.services || [])
-        .map((sv) => `<li><span>${esc(sv.title)}</span><span class="dots" aria-hidden="true"></span><b class="nowrap">от ${price(sv.price)}</b><span class="muted nowrap">/ ${esc(sv.unit)}</span></li>`)
+        .map((sv) => `<li><span>${esc(sv.title)}${sv.note ? `<span class="sv-note">${esc(sv.note)}</span>` : ''}</span><span class="dots" aria-hidden="true"></span><b class="nowrap">${svPrice(sv, cur)}</b>${sv.price > 0 ? `<span class="muted nowrap">/ ${esc(sv.unit)}</span>` : ''}</li>`)
         .join('')}</ul>
+      ${s.pricesNote ? `<p class="muted small">${esc(s.pricesNote)}</p>` : ''}
     </section>
 
     <section class="prof-sec">
@@ -443,9 +486,18 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
         ${f.online ? '<li><b>Онлайн</b><span>видеосвязь и общая доска</span></li>' : ''}
         ${f.atHome && f.atHome.length ? `<li><b>У специалиста</b><span>${esc(f.atHome.join(', '))}</span></li>` : ''}
         ${f.travel && f.travel.length ? `<li><b>С выездом к ученику</b><span>${esc(f.travel.join(', '))}</span></li>` : ''}
-        ${f.groups ? '<li><b>Мини-группы</b><span>2–4 ученика одного уровня</span></li>' : ''}
+        ${f.offline && f.offline.length ? `<li><b>Очно</b><span>${esc(f.offline.join(', '))}</span></li>` : ''}
+        ${f.groups ? `<li><b>Мини-группы</b><span>${esc(f.groupsNote || '2–4 ученика одного уровня')}</span></li>` : ''}
       </ul>
     </section>
+
+    ${
+      s.gallery && s.gallery.length
+        ? `<section class="prof-sec"><h2>${isTrainer ? 'Фото с тренировок' : 'Фото'}</h2><ul class="gallery">${s.gallery
+            .map((g) => `<li><img src="${esc(g.src)}" width="${g.w}" height="${g.h}" alt="${esc(g.alt)}" loading="lazy" decoding="async"></li>`)
+            .join('')}</ul></section>`
+        : ''
+    }
 
     ${listBlock('Образование', s.education)}
     ${listBlock('Опыт работы', s.experience)}
@@ -456,7 +508,7 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
         ? `<section class="prof-sec" id="otzyvy">
       <h2>Отзывы <span class="muted">${s.reviews.length}</span></h2>
       <ul class="reviews">${s.reviews.map(reviewItem).join('')}</ul>
-      ${s.profiUrl ? `<p class="muted small">Отзывы перенесены из анкеты на <a href="${esc(s.profiUrl)}" rel="nofollow noopener" target="_blank">Профи.ру</a>.</p>` : ''}
+      ${s.profiUrl ? `<p class="muted small">Отзывы перенесены из анкеты на <a href="${esc(s.profiUrl)}" rel="nofollow noopener" target="_blank">Профи.ру</a>.</p>` : s.reviewsNote ? `<p class="muted small">${esc(s.reviewsNote)}</p>` : ''}
     </section>`
         : ''
     }
@@ -481,26 +533,28 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
         description: s.headline,
         image: s.photo ? abs(s.photo) : undefined,
         url: abs(path),
-        knowsAbout: subj.map((x) => x.title),
-        address: f.atHome && f.atHome.length ? { '@type': 'PostalAddress', addressLocality: f.atHome[0], addressCountry: 'RU' } : undefined,
-        alumniOf: (s.education || []).slice(0, 1).map((e) => ({ '@type': 'CollegeOrUniversity', name: e.title.split(',')[0] })),
-        hasCredential: (s.achievements || []).map((a) => ({ '@type': 'EducationalOccupationalCredential', name: a.title })),
-        sameAs: s.profiUrl ? [s.profiUrl] : undefined,
+        knowsAbout: [...subj.map((x) => x.title), ...(s.focus || [])],
+        address: s.address || (f.atHome && f.atHome.length ? { '@type': 'PostalAddress', addressLocality: f.atHome[0], addressCountry: 'RU' } : undefined),
+        alumniOf: (s.alumniOf || (s.education || []).slice(0, 1).map((e) => e.title.split(',')[0])).map((name) => ({ '@type': 'EducationalOrganization', name })),
+        hasCredential: [...(s.achievements || []), ...(isTrainer ? s.education || [] : [])].map((a) => ({ '@type': 'EducationalOccupationalCredential', name: a.title })),
+        sameAs: [s.profiUrl, s.telegram].filter(Boolean),
         makesOffer: (s.services || []).map((sv) => ({
           '@type': 'Offer',
           name: sv.title,
-          priceCurrency: 'RUB',
+          priceCurrency: cur,
           price: sv.price,
-          areaServed: 'Москва',
+          areaServed: f.online ? 'Онлайн' : 'Москва',
         })),
       },
+      dateCreated: s.createdAt,
+      dateModified: s.updatedAt || s.createdAt,
     },
   ];
 
   return page({
     title: s.seoTitle || `${s.name} — ${s.role.toLowerCase()} в Москве`,
     ogTitle: `${s.name} — ${s.role.toLowerCase()}`,
-    description: s.seoDescription || `${s.name}: ${s.headline}. ${from ? `От ${price(from)} за час. ` : ''}${s.reviewsCount ? `Рейтинг ${Number(s.rating).toFixed(1)}, ${s.reviewsCount} ${plural(s.reviewsCount, 'отзыв', 'отзыва', 'отзывов')}. ` : ''}Запись на пробное занятие.`.slice(0, 300),
+    description: s.seoDescription || `${s.name}: ${s.headline}. ${from ? `От ${money(from)} / ${from.unit}. ` : ''}${s.reviewsCount ? `${reviewsWord(s.reviewsCount)}. ` : ''}Запись онлайн.`.slice(0, 300),
     path,
     image: s.ogImage || s.photo,
     ogType: 'profile',
@@ -515,12 +569,13 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета н�
 
 function leadForm(s, { sent, error, form }) {
   if (sent) {
-    return `<div class="sent" role="status"><h2>Заявка отправлена</h2><p>${esc(s.name.split(' ')[0])} получит её в личном кабинете и свяжется с вами, обычно в течение дня.</p></div>`;
+    return `<div class="sent" role="status"><h2>Заявка отправлена</h2><p>${esc(s.name.split(' ')[0])} свяжется с вами, обычно в течение дня.</p></div>`;
   }
   const subj = (s.subjects || []).map(subjectBySlug).filter(Boolean);
   const v = (k) => esc(form[k] || '');
+  const tr = s.kind === 'trener';
   return `<h2>Записаться к ${esc(nameDative(s.name))}</h2>
-<p class="muted">Оставьте контакты — специалист перезвонит, ответит на вопросы и предложит время пробного занятия.</p>
+<p class="muted">${tr ? 'Оставьте контакты — тренер свяжется, уточнит цель и ограничения по здоровью и предложит формат.' : 'Оставьте контакты — специалист перезвонит, ответит на вопросы и предложит время пробного занятия.'}</p>
 ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="/zayavka" class="form" novalidate>
   <input type="hidden" name="specialist" value="${esc(s.slug)}">
@@ -533,23 +588,31 @@ ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
         ? `<label>Цель<select name="subject">${subj.map((x) => `<option value="${x.slug}"${form.subject === x.slug ? ' selected' : ''}>${esc(x.title)}</option>`).join('')}<option value="other"${form.subject === 'other' ? ' selected' : ''}>Другое</option></select></label>`
         : ''
     }
-    <label>Класс или возраст<input name="grade" maxlength="40" placeholder="9 класс" value="${v('grade')}"></label>
+    <label>${tr ? 'Возраст' : 'Класс или возраст'}<input name="grade" maxlength="40" placeholder="${tr ? '32 года' : '9 класс'}" value="${v('grade')}"></label>
     <fieldset class="seg"><legend>Формат</legend>
       ${['онлайн', 'очно', 'не важно'].map((x, i) => `<label><input type="radio" name="format" value="${x}"${(form.format || 'не важно') === x ? ' checked' : ''}> ${x}</label>`).join('')}
     </fieldset>
-    <label class="span-2">Комментарий<textarea name="message" rows="3" maxlength="1000" placeholder="Например: готовимся к ОГЭ в мае, удобно по вечерам">${v('message')}</textarea></label>
+    <label class="span-2">Комментарий<textarea name="message" rows="3" maxlength="1000" placeholder="${tr ? 'Например: хочу похудеть на 5 кг, есть протрузия в пояснице' : 'Например: готовимся к ОГЭ в мае, удобно по вечерам'}">${v('message')}</textarea></label>
   </div>
   <label class="check"><input type="checkbox" name="consent" value="1" required${form.consent ? ' checked' : ''}> Согласен на обработку персональных данных по <a href="/politika" target="_blank">политике конфиденциальности</a></label>
   <button class="btn btn-primary" type="submit">Отправить заявку</button>
 </form>`;
 }
 
-// «Руслан Алиев» → «Руслану Алиеву» (для заголовка формы; для сложных случаев — имя как есть).
+// «Руслан Алиев» → «Руслану Алиеву», «Дарья Калашникова» → «Дарье Калашниковой».
 function nameDative(full) {
   const [first, last] = String(full).split(' ');
-  const f = /[бвгджзклмнпрстфхцчшщ]$/i.test(first) ? first + 'у' : /а$/.test(first) ? first.slice(0, -1) + 'е' : first;
-  const l = !last ? '' : /(ов|ев|ин|ын)$/.test(last) ? last + 'у' : /(ова|ева|ина|ына)$/.test(last) ? last.slice(0, -1) + 'ой' : last;
+  const f = /ия$/.test(first) ? first.slice(0, -1) + 'и' : /[ая]$/.test(first) ? first.slice(0, -1) + 'е' : /[бвгджзклмнпрстфхцчшщ]$/i.test(first) ? first + 'у' : first;
+  const l = !last ? '' : /(ова|ева|ина|ына)$/.test(last) ? last.slice(0, -1) + 'ой' : /(ов|ев|ин|ын)$/.test(last) ? last + 'у' : last;
   return [f, l].filter(Boolean).join(' ');
+}
+
+function faqLd(faq) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  };
 }
 
 function itemListLd(list) {
@@ -620,4 +683,4 @@ function notFound({ user }) {
   });
 }
 
-module.exports = { home, repetitory, trenery, zanyatiya, subjectPage, profile, privacy, notFound, profilePath, minPrice };
+module.exports = { home, repetitory, trenery, zanyatiya, subjectPage, profile, privacy, notFound, profilePath, minPrice, cheapest };

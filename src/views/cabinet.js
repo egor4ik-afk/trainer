@@ -172,20 +172,21 @@ ${user.role === 'admin' && all.length > 1 ? `<p class="small">Другие ан�
   </div>
   ${area('headline', 'Коротко о главном', s.headline, 'одна фраза под именем', 2)}
   ${area('about', 'О себе', s.about, '', 5)}
-  ${
-    s.kind === 'repetitor'
-      ? `<fieldset class="checks"><legend>Предметы</legend>${SUBJECTS.filter((x) => x.kind === 'repetitor')
-          .map((x) => `<label><input type="checkbox" name="subjects" value="${x.slug}"${(s.subjects || []).includes(x.slug) ? ' checked' : ''}> ${esc(x.title)}</label>`)
-          .join('')}</fieldset>`
-      : ''
-  }
+  <fieldset class="checks"><legend>${s.kind === 'trener' ? 'Направления' : 'Предметы'}</legend>${SUBJECTS.filter((x) => x.kind === s.kind)
+    .map((x) => `<label><input type="checkbox" name="subjects" value="${x.slug}"${(s.subjects || []).includes(x.slug) ? ' checked' : ''}> ${esc(x.title)}</label>`)
+    .join('')}</fieldset>
+
+  ${area('focus', 'С чем работаете', lines(s.focus, (x) => x), 'направления и запросы, каждое с новой строки')}
 
   <h2>Результаты и подход</h2>
   ${area('results', 'Результаты учеников', lines(s.results, (x) => x), 'каждый пункт с новой строки')}
   ${area('method', 'Как проходят занятия', lines(s.method, (x) => x), 'каждый шаг с новой строки')}
 
   <h2>Услуги и цены</h2>
-  ${area('services', 'Услуги', lines(s.services, (x) => `${x.title} | ${x.price}`), 'формат строки: Название | цена за 60 минут', 6)}
+  ${area('services', 'Услуги', lines(s.services, (x) => `${x.title} | ${x.price}${x.unit && x.unit !== '60 мин' ? ` | ${x.unit}` : ''}`), 'формат строки: Название | цена | за что (по умолчанию «60 мин»); цена 0 — бесплатно', 6)}
+  <label>Валюта цен<select name="currency">${[['RUB', 'Рубли, ₽'], ['USD', 'Доллары, $'], ['EUR', 'Евро, €']]
+    .map(([k, t]) => `<option value="${k}"${(s.currency || 'RUB') === k ? ' selected' : ''}>${t}</option>`)
+    .join('')}</select></label>
 
   <h2>Где занимаетесь</h2>
   <fieldset class="checks">
@@ -202,7 +203,11 @@ ${user.role === 'admin' && all.length > 1 ? `<p class="small">Другие ан�
   ${area('education', 'Образование', lines(s.education, (x) => `${x.title} | ${x.years || ''}`), 'формат строки: Учебное заведение, программа | годы')}
   ${area('experience', 'Опыт работы', lines(s.experience, (x) => `${x.title} | ${x.years || ''}`), 'формат строки: Должность и место | годы', 3)}
   ${area('achievements', 'Достижения', lines(s.achievements, (x) => `${x.title} | ${x.years || ''}`), 'формат строки: Награда | год', 3)}
-  ${field('profiUrl', 'Анкета на Профи.ру (необязательно)', s.profiUrl, 'maxlength="200" placeholder="https://profi.ru/profile/..."')}
+  <h2>Контакты</h2>
+  <div class="form-grid">
+    ${field('telegram', 'Telegram для учеников (необязательно)', s.telegram, 'maxlength="100" placeholder="https://t.me/username"')}
+    ${field('profiUrl', 'Анкета на Профи.ру (необязательно)', s.profiUrl, 'maxlength="200" placeholder="https://profi.ru/profile/..."')}
+  </div>
 
   <div class="form-actions"><button class="btn btn-primary" type="submit">Сохранить анкету</button></div>
 </form>`,
