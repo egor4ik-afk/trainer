@@ -34,6 +34,8 @@
 | `YANDEX_VERIFICATION`, `GOOGLE_SITE_VERIFICATION` | Коды подтверждения сайта в Яндекс Вебмастере и Google Search Console |
 | `YANDEX_METRIKA_ID` | Номер счётчика Яндекс Метрики |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Уведомления о новых заявках в Telegram (необязательно) |
+| `INDEXNOW_KEY` | Ключ IndexNow для Яндекса (файл `/<ключ>.txt` отдаётся сайтом автоматически) |
+| `INDEXNOW_DISABLED=1` | Временно не сообщать Яндексу о страницах (например, пока домен не привязан) |
 
 ## Запуск
 
