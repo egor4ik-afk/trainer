@@ -522,6 +522,7 @@ async function pingIndexNow(urls) {
 
 // Сообщаем Яндексу об изменениях один раз после запуска новой версии.
 async function announceOnStart() {
+  if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1') return;
   const version = layout.ASSET_VERSION;
   const last = db.get('meta', 'indexnow');
   if (last && last.version === version) return;
