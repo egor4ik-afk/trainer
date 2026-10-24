@@ -1,0 +1,21 @@
+{
+  "name": "trainer-moscow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "trainer.moscow — репетиторы и тренеры в Москве: каталог, анкеты специалистов, заявки и личный кабинет",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "compression": "^1.7.5",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
