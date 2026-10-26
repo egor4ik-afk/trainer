@@ -40,6 +40,8 @@
 
 ## Переменные окружения
 
+Необязательные переменные (их может не быть в настройках RelaxDev) читаются только через `env('ИМЯ', по_умолчанию)` из `src/env.js`, то есть `process.env[name]`. Запись `process.env.ИМЯ` — только для переменных, которые заданы в проекте: для остальных RelaxDev подставляет заглушку, и значение по умолчанию не срабатывает.
+
 | Переменная | Зачем |
 |---|---|
 | `DATABASE_URL` | PostgreSQL. Без неё данные пишутся в `data/db.json` (для локальной разработки) |
@@ -49,15 +51,15 @@
 | `YOOKASSA_RECEIPT=1`, `YOOKASSA_VAT_CODE` | Чеки 54-ФЗ через ЮKassa (если касса подключена там) |
 | `SELLER_NAME`, `SELLER_INN`, `SELLER_EMAIL` | Реквизиты продавца для публичной оферты |
 | `SESSION_SECRET` | Ключ подписи сессий (если не задан — создаётся и хранится в базе) |
-| `YANDEX_VERIFICATION`, `GOOGLE_SITE_VERIFICATION` | Коды подтверждения сайта в Яндекс Вебмастере и Google Search Console |
 | `YANDEX_METRIKA_ID` | Номер счётчика Яндекс Метрики |
 | `TELEGRAM_BOT_TOKEN` | Бот заявок и поддержки |
 | `TELEGRAM_SUPPORT_CHAT_ID` | Группа поддержки с темами (бот — админ с правом «Управление темами») |
 | `TELEGRAM_WEBHOOK_SECRET` | Секрет вебхука: без него вебхук ничего не принимает |
 | `TG_PROXY_URL`, `EGRESS_PROXY_URL` | HTTP-прокси для api.telegram.org и api.anthropic.com (из России напрямую не открываются) |
-| `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `AI_REPLIES=0` | AI-ассистент в боте (по умолчанию claude-sonnet-5-5); без ключа молчит |
+| `ANTHROPIC_API_KEY`, `AI_REPLIES=0` | AI-ассистент в боте (модель claude-sonnet-5-5 задана в `src/ai.js`); без ключа молчит, `AI_REPLIES=0` выключает |
 | `INDEXNOW_KEY` | Ключ IndexNow для Яндекса (файл `/<ключ>.txt` отдаётся сайтом автоматически) |
-| `INDEXNOW_DISABLED=1` | Временно не сообщать Яндексу о страницах (например, пока домен не привязан) |
+
+Подтверждение сайта в Яндекс Вебмастере и Google Search Console — файлами в `public/` (`yandex_….html`, `google….html`).
 
 ## Запуск
 

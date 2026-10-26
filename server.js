@@ -1023,7 +1023,7 @@ app.get(`/${INDEXNOW_KEY}.txt`, (req, res) => res.type('text/plain').send(INDEXN
 // IndexNow: Яндекс напрямую и общий узел, который передаёт адреса Bing и другим поисковикам.
 const INDEXNOW_ENDPOINTS = ['https://yandex.com/indexnow', 'https://api.indexnow.org/indexnow'];
 async function pingIndexNow(urls) {
-  if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1' || !urls.length) return;
+  if (!IS_PROD || !urls.length) return;
   const body = JSON.stringify({ host: SITE.host, key: INDEXNOW_KEY, keyLocation: `${SITE.url}/${INDEXNOW_KEY}.txt`, urlList: [...new Set(urls)] });
   await Promise.all(
     INDEXNOW_ENDPOINTS.map(async (endpoint) => {
@@ -1043,7 +1043,7 @@ function changedUrls(s) {
 
 // После запуска сообщаем поисковикам о карте сайта, если она изменилась с прошлого раза.
 async function announceOnStart() {
-  if (!IS_PROD || process.env.INDEXNOW_DISABLED === '1') return;
+  if (!IS_PROD) return;
   const version = crypto.createHash('sha1').update(JSON.stringify(sitemapUrls())).update(layout.ASSET_VERSION).digest('hex').slice(0, 12);
   const last = db.get('meta', 'indexnow');
   if (last && last.version === version) return;

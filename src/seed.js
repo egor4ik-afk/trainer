@@ -392,7 +392,7 @@ async function seed() {
   // Учётные записи создаются из переменных окружения при первом запуске.
   // Пароль потом меняется в кабинете — переменная больше не используется.
   const accounts = [
-    { login: process.env.ADMIN_LOGIN || 'admin', password: process.env.ADMIN_PASSWORD, role: 'admin', name: 'Администратор', specialistId: null },
+    { login: 'admin', password: process.env.ADMIN_PASSWORD, role: 'admin', name: 'Администратор', specialistId: null },
     { login: 'shatova', password: process.env.SHATOVA_PASSWORD, role: 'admin', name: 'Евгения Шатова', specialistId: SHATOVA.slug, phone: SHATOVA.phone },
     { login: 'darya', password: process.env.DARYA_PASSWORD, role: 'specialist', name: 'Дарья Калашникова', specialistId: DARIA.slug },
     { login: 'erokhin', password: process.env.EROKHIN_PASSWORD, role: 'specialist', name: 'Александр Ерохин', specialistId: EROKHIN.slug },

@@ -7,10 +7,11 @@
  * YOOKASSA_VAT_CODE — код НДС для чека (по умолчанию 1 — без НДС).
  */
 const crypto = require('crypto');
+const { env } = require('./env');
 
 const API = 'https://api.yookassa.ru/v3';
-const enabled = () => Boolean(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY);
-const authHeader = () => 'Basic ' + Buffer.from(`${process.env.YOOKASSA_SHOP_ID}:${process.env.YOOKASSA_SECRET_KEY}`).toString('base64');
+const enabled = () => Boolean(env('YOOKASSA_SHOP_ID') && env('YOOKASSA_SECRET_KEY'));
+const authHeader = () => 'Basic ' + Buffer.from(`${env('YOOKASSA_SHOP_ID')}:${env('YOOKASSA_SECRET_KEY')}`).toString('base64');
 
 async function call(method, path, body, idempotenceKey) {
   const headers = { Authorization: authHeader(), 'Content-Type': 'application/json' };
@@ -35,7 +36,7 @@ async function createPayment({ order, description, returnUrl }) {
     description: description.slice(0, 128),
     metadata: { orderId: order.id },
   };
-  if (process.env.YOOKASSA_RECEIPT === '1') {
+  if (env('YOOKASSA_RECEIPT') === '1') {
     body.receipt = {
       customer: { email: order.customer.email },
       items: [
@@ -43,7 +44,7 @@ async function createPayment({ order, description, returnUrl }) {
           description: description.slice(0, 128),
           quantity: '1.00',
           amount: money(order.amount),
-          vat_code: Number(process.env.YOOKASSA_VAT_CODE || 1),
+          vat_code: Number(env('YOOKASSA_VAT_CODE', '1')),
           payment_mode: 'full_payment',
           payment_subject: 'service',
         },

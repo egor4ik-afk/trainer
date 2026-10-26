@@ -5,23 +5,24 @@
  * пометкой «AI-ассистент». Тренер написал в тему — AI в этом разговоре
  * молчит до /ai или /close (как в HelpMame).
  *
- * Ключ — ANTHROPIC_API_KEY; запросы идут через зарубежный прокси (AI_PROXY_URL,
- * EGRESS_PROXY_URL или тот же TG_PROXY_URL). CLAUDE_MODEL меняет модель, AI_REPLIES=0 выключает.
+ * Ключ — ANTHROPIC_API_KEY; запросы идут через зарубежный прокси EGRESS_PROXY_URL
+ * (или тот же TG_PROXY_URL). AI_REPLIES=0 выключает ассистента.
  */
 const { ProxyAgent, fetch: undiciFetch } = require('undici');
 const db = require('./db');
 const { SITE, GOALS } = require('./catalog');
+const { env } = require('./env');
 
-const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const MODEL = 'claude-sonnet-5-5';
 const DEBOUNCE_MS = 4000; // клиент часто пишет несколькими сообщениями подряд
 const MAX_PER_DAY = 40;
 
-const enabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && process.env.AI_REPLIES !== '0';
-const model = () => process.env.CLAUDE_MODEL || DEFAULT_MODEL;
+const enabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && env('AI_REPLIES') !== '0';
+const model = () => MODEL;
 
 let agent = null;
 function dispatcher() {
-  const url = process.env.AI_PROXY_URL || process.env.EGRESS_PROXY_URL || process.env.TG_PROXY_URL || '';
+  const url = process.env.EGRESS_PROXY_URL || process.env.TG_PROXY_URL || '';
   if (!url) return undefined;
   if (!agent || agent.url !== url) agent = { url, d: new ProxyAgent(url) };
   return agent.d;

@@ -2,6 +2,7 @@
 const { esc, page, price, plural, breadcrumbs, breadcrumbsLd, abs } = require('./layout');
 const { SITE, DIRECTIONS, TRAINER_DIRECTIONS, subjectBySlug } = require('../catalog');
 const ui = require('./ui');
+const { env } = require('../env');
 
 /* ---------- тренеры ---------- */
 
@@ -313,9 +314,9 @@ function privacy({ user }) {
 }
 
 function oferta({ user }) {
-  const seller = process.env.SELLER_NAME || '';
-  const inn = process.env.SELLER_INN || '';
-  const email = process.env.SELLER_EMAIL || '';
+  const seller = env('SELLER_NAME');
+  const inn = env('SELLER_INN');
+  const email = env('SELLER_EMAIL');
   const body = `
 <section class="page-head">
   <div class="wrap narrow">

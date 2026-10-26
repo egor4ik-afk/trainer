@@ -6,6 +6,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { env } = require('./env');
 
 class MemoryIndex {
   constructor() {
@@ -88,7 +89,7 @@ class Store {
     this.kind = url ? 'postgres' : 'file';
     this.backend = url
       ? new PgBackend(url)
-      : new FileBackend(process.env.DATA_FILE || path.join(__dirname, '..', 'data', 'db.json'));
+      : new FileBackend(env('DATA_FILE', path.join(__dirname, '..', 'data', 'db.json')));
     this.queue = Promise.resolve();
   }
 

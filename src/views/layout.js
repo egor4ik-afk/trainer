@@ -1,5 +1,6 @@
 'use strict';
 const { SITE, DIRECTIONS } = require('../catalog');
+const { env } = require('../env');
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ESC[c]);
@@ -109,7 +110,7 @@ function footer() {
 }
 
 function metrika() {
-  const id = process.env.YANDEX_METRIKA_ID;
+  const id = env('YANDEX_METRIKA_ID');
   if (!id || !/^\d+$/.test(id)) return '';
   return `<script>(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");ym(${id},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});</script><noscript><div><img src="https://mc.yandex.ru/watch/${id}" style="position:absolute;left:-9999px" alt=""></div></noscript>`;
 }
@@ -127,12 +128,6 @@ function page(opts) {
   const og = opts.image ? { url: opts.image, w: opts.imageW, h: opts.imageH } : defaultOg;
   const image = abs(og.url);
   const robots = opts.noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1';
-  const verif = [
-    process.env.YANDEX_VERIFICATION && `<meta name="yandex-verification" content="${esc(process.env.YANDEX_VERIFICATION)}">`,
-    process.env.GOOGLE_SITE_VERIFICATION && `<meta name="google-site-verification" content="${esc(process.env.GOOGLE_SITE_VERIFICATION)}">`,
-  ]
-    .filter(Boolean)
-    .join('');
   const ld = (opts.ld || []).map(jsonLd).join('');
 
   return `<!doctype html>
@@ -166,7 +161,7 @@ ${og.w && og.h ? `<meta property="og:image:width" content="${og.w}">\n<meta prop
 ${(opts.preload || []).map((p) => `<link rel="preload" as="image" href="${esc(p.href)}"${p.srcset ? ` imagesrcset="${esc(p.srcset)}" imagesizes="${esc(p.sizes || '100vw')}"` : ''} fetchpriority="high">`).join('')}
 <link rel="preload" href="/fonts/golos-text-cyrillic-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 ${inlineCss ? `<style>${inlineCss}</style>` : `<link rel="stylesheet" href="/css/site.css?v=${assetVersion}">`}
-${verif}${ld}
+${ld}
 </head>
 <body class="${opts.bodyClass || ''}">
 <a class="skip" href="#main">Перейти к содержимому</a>

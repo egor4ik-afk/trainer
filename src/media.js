@@ -7,12 +7,13 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { env } = require('./env');
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const MIME = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
 
 let pool = null;
-const dir = process.env.MEDIA_DIR || path.join(__dirname, '..', 'data', 'media');
+const dir = env('MEDIA_DIR', path.join(__dirname, '..', 'data', 'media'));
 const meta = new Map(); // id -> { id, mime, width, height, alt, bytes, createdAt }
 
 async function init() {
