@@ -85,6 +85,7 @@ function footer() {
       <p class="footer-brand"><span class="brand-name">Shatova</span> <span class="brand-pro">Pro</span></p>
       <p>Евгения Шатова — онлайн-тренер и тренер по позированию, IFBB Pro Bikini.</p>
       ${SITE.phone ? `<p><a href="tel:+${SITE.phone.replace(/\D/g, '')}">${SITE.phone}</a></p>` : ''}
+      ${SITE.telegram ? `<p><a href="${SITE.telegram}" rel="nofollow noopener" target="_blank">Telegram: @${SITE.telegram.split('/').pop()}</a></p>` : ''}
       <p><a href="${SITE.instagram}" rel="nofollow noopener" target="_blank">Instagram*: @${SITE.instagramHandle}</a></p>
     </div>
     <div>

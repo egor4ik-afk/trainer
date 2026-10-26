@@ -121,7 +121,7 @@ function nameDative(full) {
 
 /* ---------- Телефон ---------- */
 
-// Цифры для входа по телефону: 8 903… и +7 903… — один и тот же номер.
+// Цифры для входа по телефону: 8 906… и +7 906… — один и тот же номер.
 function phoneKey(v) {
   let d = String(v || '').replace(/\D/g, '');
   if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
@@ -129,6 +129,16 @@ function phoneKey(v) {
   return /^7\d{10}$/.test(d) ? d : null;
 }
 const telOf = (p) => 'tel:+' + (phoneKey(p) || String(p).replace(/\D/g, ''));
+const tgHandle = (url) => '@' + String(url || '').replace(/^https:\/\/t\.me\//, '');
+const tgLink = (url) => `<a href="${esc(url)}" rel="nofollow noopener" target="_blank">${esc(tgHandle(url))}</a>`;
+// «Или напишите в Telegram … или позвоните …» — под формой заявки.
+function contactsLine(s) {
+  const parts = [];
+  if (s.telegram) parts.push(`Telegram ${tgLink(s.telegram)}`);
+  if (s.phone) parts.push(`Телефон ${phoneLink(s.phone)}`);
+  if (!parts.length) return '';
+  return `<p class="form-phone"><span class="fp-h">Или напрямую:</span><br>${parts.join('<br>')}</p>\n`;
+}
 const phoneLink = (p, cls) => `<a${cls ? ` class="${cls}"` : ''} href="${telOf(p)}">${esc(p)}</a>`;
 
 /**
@@ -143,7 +153,7 @@ function leadForm({ s, offer, sent, error, form = {}, title, intro, action = '/z
   const goal = form.goal || (offer && (GOALS.find((g) => g.offer === offer.slug) || {}).id) || '';
   return `<h2>${esc(title || `Записаться к ${nameDative(s.name)}`)}</h2>
 <p class="form-intro">${esc(intro || 'Оставьте контакты — тренер свяжется, уточнит цель и здоровье и предложит формат. Первая консультация бесплатная.')}</p>
-${s.phone ? `<p class="form-phone">Или позвоните: ${phoneLink(s.phone)}</p>\n` : ''}${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
+${contactsLine(s)}${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="${action}#${anchor}" class="form" novalidate>
   <input type="hidden" name="specialist" value="${esc(s.slug)}">
   <input type="hidden" name="from" value="${esc(offer ? 'offer' : from)}">
@@ -190,6 +200,8 @@ module.exports = {
   phoneKey,
   telOf,
   phoneLink,
+  tgHandle,
+  tgLink,
   profilePath,
   offerPath,
   reviewsWord,

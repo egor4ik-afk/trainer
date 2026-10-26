@@ -224,6 +224,7 @@ ${user.role === 'admin' && all.length > 1 ? `<p class="small">Другие ан�
   <h2>Контакты</h2>
   <div class="form-grid">
     ${field('telegram', 'Telegram для учеников (необязательно)', s.telegram, 'maxlength="100" placeholder="https://t.me/username"')}
+    ${field('phone', 'Телефон на сайте (необязательно)', s.phone, 'maxlength="30" inputmode="tel" placeholder="+7 900 000-00-00"')}
     ${field('profiUrl', 'Анкета на Профи.ру (необязательно)', s.profiUrl, 'maxlength="200" placeholder="https://profi.ru/profile/..."')}
     ${field('offline', 'Очно (через запятую)', (f.offline || []).join(', '), 'maxlength="200" placeholder="Москва — студия в центре"')}
   </div>

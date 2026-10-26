@@ -603,6 +603,7 @@ app.post('/kabinet/anketa', requireUser, requireStaff, requireCsrf, async (req, 
     return { author: (author || 'Ученик').slice(0, 60), service: (service || '').slice(0, 80), text: text.join(' | ').slice(0, 2000) };
   });
   const telegram = String(b.telegram || '').trim();
+  const phoneDigits = ui.phoneKey(b.phone);
   const instagram = String(b.instagram || '').trim();
   const photo = String(b.photo || '').trim();
   const updated = {
@@ -616,6 +617,7 @@ app.post('/kabinet/anketa', requireUser, requireStaff, requireCsrf, async (req, 
     currency: ['RUB', 'USD', 'EUR'].includes(b.currency) ? b.currency : 'RUB',
     telegram: /^https:\/\/t\.me\/[A-Za-z0-9_]{4,}$/.test(telegram) ? telegram : /^@?[A-Za-z0-9_]{4,}$/.test(telegram) ? `https://t.me/${telegram.replace('@', '')}` : '',
     instagram: /^https:\/\/(www\.)?instagram\.com\/[\w.]+\/?$/.test(instagram) ? instagram : '',
+    phone: phoneDigits ? `+7 ${phoneDigits.slice(1, 4)} ${phoneDigits.slice(4, 7)}-${phoneDigits.slice(7, 9)}-${phoneDigits.slice(9)}` : '',
     results: splitLines(b.results, 30),
     method: splitLines(b.method, 30),
     services,
@@ -897,6 +899,7 @@ function llmsText(full) {
     '',
     'Первая консультация бесплатная — заявка через форму на сайте. Программы покупаются на сайте и открываются в личном кабинете.',
     ...(SITE.phone ? ['', `Телефон: ${SITE.phone}`] : []),
+    ...(SITE.telegram ? [`Telegram: ${SITE.telegram}`] : []),
     '',
     '## Форматы и программы',
     '',

@@ -76,16 +76,19 @@ const post = (p, body, cookie) => fetch(BASE + p, { method: 'POST', headers: { '
     ok(!/Руслан|репетитор/i.test(home), 'на главной нет репетиторов');
     ok(/<link rel="canonical" href="https:\/\/trainer\.moscow\/">/.test(home), 'canonical на главной');
     ok(home.includes('Instagram принадлежит компании Meta'), 'пометка про Meta в подвале');
-    ok(home.includes('href="tel:+79037643874"') && home.includes('"telephone":"+79037643874"'), 'телефон на главной и в разметке');
+    ok(home.includes('href="tel:+79067436132"') && home.includes('"telephone":"+79067436132"') && !home.includes('903'), 'телефон на главной и в разметке');
+    ok(home.includes('https://t.me/Shatova_ifbb_pro') && home.includes('@Shatova_ifbb_pro'), 'Telegram на главной');
     ok(home.includes('в спорте с 2015 года'), 'стаж с 2015 года');
 
     // вход по телефону
-    for (const phone of ['8 (903) 764-38-74', '+79037643874', '9037643874']) {
+    for (const phone of ['8 (906) 743-61-32', '+79067436132', '9067436132']) {
       const r = await post('/kabinet/vhod', { login: phone, password: PASS });
       ok(r.status === 303 && r.headers.get('location') === '/kabinet/zayavki' && cookieOf(r).startsWith('tm_sess='), `вход по телефону ${phone}`);
     }
-    const wrongPass = await post('/kabinet/vhod', { login: '+7 903 764-38-74', password: 'nope' });
+    const wrongPass = await post('/kabinet/vhod', { login: '+7 906 743-61-32', password: 'nope' });
     ok(wrongPass.status === 401, 'по телефону с неверным паролем — отказ');
+    const oldPhone = await post('/kabinet/vhod', { login: '+7 903 764-38-74', password: PASS });
+    ok(oldPhone.status === 401, 'по старому номеру не войти');
 
     // заявка с главной
     const bad = await post('/zayavka', { specialist: 'evgeniya-shatova', from: 'home', name: 'Тест', contact: '12', consent: '1' });
