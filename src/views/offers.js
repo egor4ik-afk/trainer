@@ -94,7 +94,7 @@ function offerPage({ o, trainer, user, sent, error, form = {}, waitSent, waitErr
         ${trainer ? `<p class="offer-by">Ведёт <a href="${ui.profilePath(trainer)}">${esc(trainer.name)}</a>${trainer.headline ? ` — ${esc(trainer.headline.split('.')[0])}` : ''}</p>` : ''}
         ${hasAccess ? `<p class="flash">У вас есть доступ. <a href="/kabinet/programma/${esc(o.slug)}">Открыть в кабинете</a></p>` : ''}
       </div>
-      ${o.cover ? `<figure class="offer-cover">${ui.img(o.cover, { alt: o.title, w: o.coverWidth, h: o.coverHeight, eager: true, sizes: '(max-width: 960px) 100vw, 420px' })}</figure>` : ''}
+      ${o.cover ? `<figure class="offer-cover">${ui.img(o.cover, { alt: o.title, w: o.coverWidth, h: o.coverHeight, eager: true, sizes: '(max-width: 960px) 72vw, 420px' })}</figure>` : ''}
     </div>
   </div>
 </section>
@@ -160,12 +160,13 @@ ${
 
   return page({
     title: o.seoTitle || `${o.title}${trainer ? ` — ${trainer.name}` : ''}`,
-    description: o.seoDescription || `${o.title}: ${o.short} ${from ? `От ${price(from)}.` : ''}`.trim(),
+    description: o.seoDescription || `${o.description || o.short}${from ? ` От ${price(from)}.` : ''}`.slice(0, 200),
     path: ui.offerPath(o),
     section: o.slug === 'onlayn-vedenie' ? 'vedenie' : o.slug === 'pozirovanie' ? 'pozirovanie' : 'programmy',
-    image: o.cover || (trainer && trainer.ogImage),
-    imageW: o.cover ? o.coverWidth : trainer && trainer.ogImage ? 1200 : undefined,
-    imageH: o.cover ? o.coverHeight : trainer && trainer.ogImage ? 630 : undefined,
+    // Для превью ссылок нужна горизонтальная картинка 1200×630 — берём карточку тренера.
+    image: (trainer && trainer.ogImage) || o.cover,
+    imageW: trainer && trainer.ogImage ? 1200 : o.coverWidth,
+    imageH: trainer && trainer.ogImage ? 630 : o.coverHeight,
     noindex: o.status === 'draft' || o.status === 'hidden',
     ld,
     user,

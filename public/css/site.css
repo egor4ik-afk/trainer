@@ -208,7 +208,8 @@ ul,ol{margin:0;padding:0;list-style:none}
 .lead-wrap>form{grid-column:2;grid-row:1/span 3}
 .lead-wrap>.sent{grid-column:1/-1}
 .block--ink h2{color:#fff}
-.form-intro{color:#E3D3D7;max-width:30em}
+.form-intro{color:var(--ink-2);max-width:30em}
+.block--ink .form-intro{color:#E3D3D7}
 .block--ink .form label{color:#F3E6E9}
 .block--ink .form a{color:#fff}
 .block--ink .sent{background:#2C2025;color:#fff}
@@ -244,6 +245,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .offer-head h1{max-width:14ch}
 .offer-by{margin:18px 0 0;color:var(--muted)}
 .offer-cover{margin:0;width:min(420px,40vw)}
+@media (max-width:960px){.offer-cover{width:min(360px,72vw)}}
 .offer-cover img{aspect-ratio:4/5;object-fit:cover;width:100%}
 .offer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:56px;align-items:start}
 .offer-grid h2{font-size:clamp(28px,3vw,40px);margin-top:8px}

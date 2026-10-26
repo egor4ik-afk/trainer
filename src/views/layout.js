@@ -69,7 +69,7 @@ const NAV = [
 function header(current, user) {
   return `<header class="site-header">
   <div class="wrap header-row">
-    <a class="brand" href="/" aria-label="${esc(SITE.brand)} — на главную"><span class="brand-name">Shatova</span><span class="brand-pro">Pro</span></a>
+    <a class="brand" href="/"><span class="brand-name">Shatova</span> <span class="brand-pro">Pro</span></a>
     <nav class="nav" aria-label="Разделы">${NAV.map((n) => `<a href="${n.href}"${current === n.key ? ' aria-current="page"' : ''}>${n.title}</a>`).join('')}</nav>
     <a class="header-login" href="/kabinet">${user ? 'Кабинет' : 'Войти'}</a>
   </div>
@@ -81,7 +81,7 @@ function footer() {
   return `<footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-about">
-      <p class="footer-brand"><span class="brand-name">Shatova</span><span class="brand-pro">Pro</span></p>
+      <p class="footer-brand"><span class="brand-name">Shatova</span> <span class="brand-pro">Pro</span></p>
       <p>Евгения Шатова — онлайн-тренер и тренер по позированию, IFBB Pro Bikini.</p>
       <p><a href="${SITE.instagram}" rel="nofollow noopener" target="_blank">Instagram*: @${SITE.instagramHandle}</a></p>
     </div>
