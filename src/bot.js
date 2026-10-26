@@ -317,6 +317,12 @@ async function handleStaff(m) {
 
 async function handleUpdate(update) {
   if (update.callback_query) return handleCallback(update.callback_query);
+  // Бота добавили в группу или выдали права — сразу проверяем группу поддержки
+  const mcm = update.my_chat_member;
+  if (mcm && mcm.chat && mcm.chat.type !== 'private') {
+    console.log(`[bot] в «${mcm.chat.title}» (${mcm.chat.id}) бот теперь ${mcm.new_chat_member && mcm.new_chat_member.status}`);
+    return checkGroup().catch((e) => console.error('[bot] группа:', e.message));
+  }
   const m = update.message;
   if (!m || !m.chat) return;
   if (m.chat.type === 'private') return handlePrivate(m);
@@ -359,6 +365,12 @@ async function setup() {
     }
   }
 
+  await checkGroup();
+}
+
+/** Группа поддержки: доступна ли, включены ли темы, есть ли у бота права. Один раз — приветствие в группе. */
+async function checkGroup() {
+  const me = await tg.call('getMe');
   const cfg = support.config();
   if (!cfg.chatId) return console.log(`[bot] @${me.username}: не задан TELEGRAM_SUPPORT_CHAT_ID`);
   let chat;
@@ -387,4 +399,4 @@ async function setup() {
   }
 }
 
-module.exports = { handleUpdate, setup, sendWelcome, composeWelcome };
+module.exports = { handleUpdate, setup, checkGroup, sendWelcome, composeWelcome };
