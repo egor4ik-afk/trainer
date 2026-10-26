@@ -71,6 +71,7 @@ function header(current, user) {
   <div class="wrap header-row">
     <a class="brand" href="/"><span class="brand-name">Shatova</span> <span class="brand-pro">Pro</span></a>
     <nav class="nav" aria-label="Разделы">${NAV.map((n) => `<a href="${n.href}"${current === n.key ? ' aria-current="page"' : ''}>${n.title}</a>`).join('')}</nav>
+    ${SITE.phone ? `<a class="header-phone" href="tel:+${SITE.phone.replace(/\D/g, '')}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span>${SITE.phone}</span></a>` : ''}
     <a class="header-login" href="/kabinet">${user ? 'Кабинет' : 'Войти'}</a>
   </div>
 </header>`;
@@ -83,6 +84,7 @@ function footer() {
     <div class="footer-about">
       <p class="footer-brand"><span class="brand-name">Shatova</span> <span class="brand-pro">Pro</span></p>
       <p>Евгения Шатова — онлайн-тренер и тренер по позированию, IFBB Pro Bikini.</p>
+      ${SITE.phone ? `<p><a href="tel:+${SITE.phone.replace(/\D/g, '')}">${SITE.phone}</a></p>` : ''}
       <p><a href="${SITE.instagram}" rel="nofollow noopener" target="_blank">Instagram*: @${SITE.instagramHandle}</a></p>
     </div>
     <div>

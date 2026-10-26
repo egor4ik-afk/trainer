@@ -14,6 +14,7 @@ const SITE = {
   city: 'Москва',
   instagram: 'https://www.instagram.com/shatova.fitmom/',
   instagramHandle: 'shatova.fitmom',
+  phone: '+7 903 764-38-74',
 };
 
 /*

@@ -14,7 +14,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'trainer-'));
 const PASS = 'smoke-' + Math.random().toString(36).slice(2);
 
-const env = { ...process.env, PORT: String(PORT), DATA_FILE: path.join(tmp, 'db.json'), MEDIA_DIR: path.join(tmp, 'media'), ADMIN_PASSWORD: PASS, DARYA_PASSWORD: PASS, NODE_ENV: 'development' };
+const env = { ...process.env, PORT: String(PORT), DATA_FILE: path.join(tmp, 'db.json'), MEDIA_DIR: path.join(tmp, 'media'), ADMIN_PASSWORD: PASS, SHATOVA_PASSWORD: PASS, DARYA_PASSWORD: PASS, NODE_ENV: 'development' };
 delete env.DATABASE_URL;
 delete env.YOOKASSA_SHOP_ID;
 const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -76,6 +76,16 @@ const post = (p, body, cookie) => fetch(BASE + p, { method: 'POST', headers: { '
     ok(!/Руслан|репетитор/i.test(home), 'на главной нет репетиторов');
     ok(/<link rel="canonical" href="https:\/\/trainer\.moscow\/">/.test(home), 'canonical на главной');
     ok(home.includes('Instagram принадлежит компании Meta'), 'пометка про Meta в подвале');
+    ok(home.includes('href="tel:+79037643874"') && home.includes('"telephone":"+79037643874"'), 'телефон на главной и в разметке');
+    ok(home.includes('в спорте с 2015 года'), 'стаж с 2015 года');
+
+    // вход по телефону
+    for (const phone of ['8 (903) 764-38-74', '+79037643874', '9037643874']) {
+      const r = await post('/kabinet/vhod', { login: phone, password: PASS });
+      ok(r.status === 303 && r.headers.get('location') === '/kabinet/zayavki' && cookieOf(r).startsWith('tm_sess='), `вход по телефону ${phone}`);
+    }
+    const wrongPass = await post('/kabinet/vhod', { login: '+7 903 764-38-74', password: 'nope' });
+    ok(wrongPass.status === 401, 'по телефону с неверным паролем — отказ');
 
     // заявка с главной
     const bad = await post('/zayavka', { specialist: 'evgeniya-shatova', from: 'home', name: 'Тест', contact: '12', consent: '1' });

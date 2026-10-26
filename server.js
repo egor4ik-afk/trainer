@@ -431,9 +431,11 @@ app.post('/kabinet/vhod', async (req, res) => {
   if (!auth.rateLimit(`login:${req.ip}`, 10, 15 * 60 * 1000)) {
     return res.status(429).send(cab.login({ error: 'Слишком много попыток. Подождите 15 минут.', login, next }));
   }
-  const u = db.get('users', login);
+  // Вход по телефону — для учёток, где задан телефон для входа (loginPhone).
+  const pk = /^[\d\s()+-]+$/.test(login) ? ui.phoneKey(login) : null;
+  const u = db.get('users', login) || (pk && db.filter('users', (x) => x.loginPhone === pk)[0]);
   if (!u || !(await auth.verifyPassword(req.body.password || '', u.passwordHash))) {
-    return res.status(401).send(cab.login({ error: 'Неверная почта (логин) или пароль.', login, next }));
+    return res.status(401).send(cab.login({ error: 'Неверный телефон, почта (логин) или пароль.', login, next }));
   }
   auth.issue(res, u.id);
   res.redirect(303, next || homeOf(u));
@@ -894,6 +896,7 @@ function llmsText(full) {
     `> Сайт Евгении Шатовой: онлайн-тренер, тренер по позированию для фитнес-бикини, спортсменка IFBB Pro Bikini, участница Olympia 2025. Онлайн-ведение (тренировки и питание), позирование онлайн и в Москве, подготовка к соревнованиям и программы тренировок и питания с доступом в личном кабинете.`,
     '',
     'Первая консультация бесплатная — заявка через форму на сайте. Программы покупаются на сайте и открываются в личном кабинете.',
+    ...(SITE.phone ? ['', `Телефон: ${SITE.phone}`] : []),
     '',
     '## Форматы и программы',
     '',

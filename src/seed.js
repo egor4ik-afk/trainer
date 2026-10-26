@@ -1,6 +1,7 @@
 'use strict';
 const db = require('./db');
 const { hashPassword } = require('./auth');
+const { phoneKey } = require('./views/ui');
 
 // Анкета Дарьи Калашниковой — перенесена с её прежнего сайта (проект kalashnikova).
 const DARIA = {
@@ -131,8 +132,8 @@ const SHATOVA = {
     'IFBB Pro Bikini, участница Olympia 2025. Онлайн-ведение: тренировки и питание, позирование для фитнес-бикини, подготовка к соревнованиям. Онлайн и в Москве.',
   subjects: ['onlayn-trenirovki', 'pozirovanie-bikini', 'podgotovka-k-sorevnovaniyam', 'vosstanovlenie-posle-rodov', 'personalnyy-trener'],
   about:
-    'Я спортсменка IFBB Pro в категории бикини, онлайн-тренер и мама двух дочерей. В спорт пришла в 2018 году — тогда я даже не знала, на что способна. ' +
-    'Сегодня за плечами титулы абсолютной чемпионки и выход на сцену Olympia 2025 в Лас-Вегасе. ' +
+    'Я спортсменка IFBB Pro в категории бикини, онлайн-тренер и мама двух дочерей. В спорте с 2015 года — ' +
+    'за плечами титулы абсолютной чемпионки и выход на сцену Olympia 2025 в Лас-Вегасе. ' +
     'Работаю дистанционно: консультации, тренировочный план и сопровождение по питанию. Научу правильно питаться и слышать свой организм, ' +
     'покажу, как заниматься дома, помогу восстановиться после родов. А тем, кто мечтает о сцене, — помогу подготовиться к старту и научу позировать.',
   quote: {
@@ -173,7 +174,7 @@ const SHATOVA = {
   experience: [
     { title: 'Онлайн-тренер: ведение, питание, восстановление после родов', years: '' },
     { title: 'Тренер по позированию для фитнес-бикини', years: '' },
-    { title: 'В спорте с 2018 года; тренер — Юлия Жаркова, IFBB Pro', years: '' },
+    { title: 'В спорте с 2015 года; тренер — Юлия Жаркова, IFBB Pro', years: '' },
   ],
   services: [],
   formats: {
@@ -185,6 +186,7 @@ const SHATOVA = {
     trialNote: 'Первая консультация — бесплатно',
   },
   instagram: 'https://www.instagram.com/shatova.fitmom/',
+  phone: '+7 903 764-38-74',
   badges: ['IFBB Pro Bikini', 'Olympia 2025', 'Мама двух дочерей'],
   rating: 0,
   reviewsCount: 0,
@@ -390,7 +392,7 @@ async function seed() {
   // Пароль потом меняется в кабинете — переменная больше не используется.
   const accounts = [
     { login: process.env.ADMIN_LOGIN || 'admin', password: process.env.ADMIN_PASSWORD, role: 'admin', name: 'Администратор', specialistId: null },
-    { login: 'shatova', password: process.env.SHATOVA_PASSWORD, role: 'admin', name: 'Евгения Шатова', specialistId: SHATOVA.slug },
+    { login: 'shatova', password: process.env.SHATOVA_PASSWORD, role: 'admin', name: 'Евгения Шатова', specialistId: SHATOVA.slug, phone: SHATOVA.phone },
     { login: 'darya', password: process.env.DARYA_PASSWORD, role: 'specialist', name: 'Дарья Калашникова', specialistId: DARIA.slug },
     { login: 'erokhin', password: process.env.EROKHIN_PASSWORD, role: 'specialist', name: 'Александр Ерохин', specialistId: EROKHIN.slug },
   ];
@@ -403,6 +405,7 @@ async function seed() {
       name: a.name,
       role: a.role,
       specialistId: a.specialistId,
+      ...(a.phone ? { loginPhone: phoneKey(a.phone) } : {}),
       passwordHash: await hashPassword(a.password),
       createdAt: now,
     });

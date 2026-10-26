@@ -181,7 +181,7 @@ function waitlistForm(o, { sent, error, form }) {
     <div class="hp" aria-hidden="true"><label>Не заполняйте <input name="website" tabindex="-1" autocomplete="off"></label></div>
     ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
     <label>Почта или Telegram<input name="contact" required maxlength="80" autocomplete="email" value="${esc(form.contact || '')}"></label>
-    <label class="check"><input type="checkbox" name="consent" value="1" required> Согласна(-ен) на обработку персональных данных</label>
+    <label class="check"><input type="checkbox" name="consent" value="1" required><span>Согласна(-ен) на обработку персональных данных</span></label>
     <button class="btn btn-primary" type="submit">Узнать о старте</button>
   </form>`;
 }
@@ -209,7 +209,7 @@ function checkout({ o, pkg, user, error, form = {}, paymentsOn }) {
         <label class="span-2">Почта — для чека и входа в кабинет<input name="email" type="email" required maxlength="120" autocomplete="email" value="${v('email')}"${isClient ? ' readonly' : ''}></label>
         ${isClient ? '' : `<label class="span-2">Придумайте пароль для личного кабинета<input name="password" type="password" required minlength="8" autocomplete="new-password"><span class="hint">Не короче 8 символов. Уже покупали? <a href="/kabinet?next=${encodeURIComponent(`/zakaz/${o.slug}/${pkg.id}`)}">Войдите</a></span></label>`}
       </div>
-      <label class="check"><input type="checkbox" name="consent" value="1" required> Принимаю условия <a href="/oferta" target="_blank">публичной оферты</a> и согласна(-ен) на обработку персональных данных по <a href="/politika" target="_blank">политике</a></label>
+      <label class="check"><input type="checkbox" name="consent" value="1" required><span>Принимаю условия <a href="/oferta" target="_blank">публичной оферты</a> и согласна(-ен) на обработку персональных данных по <a href="/politika" target="_blank">политике</a></span></label>
       <button class="btn btn-primary" type="submit">${paymentsOn ? `Перейти к оплате ${price(pkg.price)}` : 'Оформить заказ'}</button>
       <p class="muted small">${paymentsOn ? 'Оплата проходит на защищённой странице ЮKassa: карта или СБП.' : 'После оформления тренер пришлёт ссылку на оплату. Доступ откроется сразу после оплаты.'}</p>
     </form>

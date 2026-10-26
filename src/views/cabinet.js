@@ -68,7 +68,7 @@ function login({ error, login: l = '', next = '' }) {
   ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
   <form method="post" action="/kabinet/vhod" class="form">
     <input type="hidden" name="next" value="${esc(next)}">
-    <label>Почта или логин<input name="login" required autocomplete="username" autocapitalize="none" value="${esc(l)}"></label>
+    <label>Телефон, почта или логин<input name="login" required autocomplete="username" autocapitalize="none" value="${esc(l)}"></label>
     <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
     <button class="btn btn-primary btn-block" type="submit">Войти</button>
   </form>
@@ -97,7 +97,7 @@ function register({ error, form = {} }) {
     <label>Специализация<input name="role" required maxlength="80" placeholder="Персональный фитнес-тренер" value="${v('role')}"></label>
     <label>Логин<input name="login" required minlength="3" maxlength="40" autocapitalize="none" autocomplete="username" placeholder="латиница, цифры, точка" value="${v('login')}"></label>
     <label>Пароль<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
-    <label class="check"><input type="checkbox" name="consent" value="1" required> Согласен с <a href="/politika" target="_blank">политикой конфиденциальности</a></label>
+    <label class="check"><input type="checkbox" name="consent" value="1" required><span>Согласен с <a href="/politika" target="_blank">политикой конфиденциальности</a></span></label>
     <button class="btn btn-primary btn-block" type="submit">Создать анкету</button>
   </form>
   <p class="center">Уже есть анкета? <a href="/kabinet">Войти</a></p>

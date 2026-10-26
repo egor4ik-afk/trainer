@@ -71,6 +71,10 @@ ul,ol{margin:0;padding:0;list-style:none}
 .nav a{padding:8px 12px;text-decoration:none;font-weight:500;border-radius:999px}
 .nav a:hover{background:var(--blush);color:var(--ink)}
 .nav a[aria-current="page"]{background:var(--ink);color:#fff}
+.header-phone{font-weight:600;text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center}
+.header-phone svg{display:none}
+.nav a{white-space:nowrap}
+.header-phone:hover{color:var(--crimson)}
 .header-login{font-weight:600;text-decoration:none;padding:8px 18px;border:1.5px solid var(--ink);border-radius:999px}
 .header-login:hover{background:var(--ink);color:#fff}
 
@@ -204,8 +208,11 @@ ul,ol{margin:0;padding:0;list-style:none}
 
 /* заявка на тёмном фоне */
 .lead-wrap{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px 64px;align-items:start}
-.lead-wrap>h2,.lead-wrap>.form-intro,.lead-wrap>.form-error{grid-column:1}
-.lead-wrap>form{grid-column:2;grid-row:1/span 3}
+.lead-wrap>h2,.lead-wrap>.form-intro,.lead-wrap>.form-error,.lead-wrap>.form-phone{grid-column:1}
+.lead-wrap>form{grid-column:2;grid-row:1/span 4}
+.form-phone{margin:0;font-weight:600;font-size:18px}
+.form-phone a{white-space:nowrap}
+.block--ink .form-phone a{color:#fff}
 .lead-wrap>.sent{grid-column:1/-1}
 .block--ink h2{color:#fff}
 .form-intro{color:var(--ink-2);max-width:30em}
@@ -427,6 +434,11 @@ ul,ol{margin:0;padding:0;list-style:none}
   .prog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+@media (max-width:1100px){
+  .header-phone{width:42px;height:42px;justify-content:center;border:1.5px solid var(--ink);border-radius:50%}
+  .header-phone svg{display:block}
+  .header-phone span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+}
 @media (max-width:960px){
   .header-row{gap:16px}
   .hero-grid{grid-template-columns:1fr;gap:8px}
@@ -453,6 +465,9 @@ ul,ol{margin:0;padding:0;list-style:none}
   .nav{order:3;width:100%;overflow-x:auto;margin:0 -6px;padding-bottom:4px}
   .header-row{flex-wrap:wrap;padding:12px 0;min-height:0}
   .header-login{margin-left:auto}
+  .header-phone{margin-left:auto}
+  .header-phone+.header-login{margin-left:0}
+  .header-row{column-gap:10px}
   .offer-row{grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;padding:20px 2px}
   .or-short{grid-column:1/-1;grid-row:2}
 }

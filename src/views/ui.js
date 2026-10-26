@@ -119,6 +119,18 @@ function nameDative(full) {
   return [f, l].filter(Boolean).join(' ');
 }
 
+/* ---------- Телефон ---------- */
+
+// Цифры для входа по телефону: 8 903… и +7 903… — один и тот же номер.
+function phoneKey(v) {
+  let d = String(v || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
+  if (d.length === 10) d = '7' + d;
+  return /^7\d{10}$/.test(d) ? d : null;
+}
+const telOf = (p) => 'tel:+' + (phoneKey(p) || String(p).replace(/\D/g, ''));
+const phoneLink = (p, cls) => `<a${cls ? ` class="${cls}"` : ''} href="${telOf(p)}">${esc(p)}</a>`;
+
 /**
  * Форма заявки на консультацию.
  * opts: s (тренер), offer (формат, если заявка со страницы формата), sent, error, form, title, compact
@@ -131,7 +143,7 @@ function leadForm({ s, offer, sent, error, form = {}, title, intro, action = '/z
   const goal = form.goal || (offer && (GOALS.find((g) => g.offer === offer.slug) || {}).id) || '';
   return `<h2>${esc(title || `Записаться к ${nameDative(s.name)}`)}</h2>
 <p class="form-intro">${esc(intro || 'Оставьте контакты — тренер свяжется, уточнит цель и здоровье и предложит формат. Первая консультация бесплатная.')}</p>
-${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
+${s.phone ? `<p class="form-phone">Или позвоните: ${phoneLink(s.phone)}</p>\n` : ''}${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="${action}#${anchor}" class="form" novalidate>
   <input type="hidden" name="specialist" value="${esc(s.slug)}">
   <input type="hidden" name="from" value="${esc(offer ? 'offer' : from)}">
@@ -143,7 +155,7 @@ ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
     <label class="span-2">Цель<select name="goal">${GOALS.map((g) => `<option value="${g.id}"${goal === g.id ? ' selected' : ''}>${esc(g.title)}</option>`).join('')}<option value="other"${goal === 'other' ? ' selected' : ''}>Другое</option></select></label>
     <label class="span-2">Комментарий<textarea name="message" rows="3" maxlength="1000" placeholder="Например: хочу минус 5 кг к лету, тренируюсь дома, есть протрузия">${v('message')}</textarea></label>
   </div>
-  <label class="check"><input type="checkbox" name="consent" value="1" required${form.consent ? ' checked' : ''}> Согласна(-ен) на обработку персональных данных по <a href="/politika" target="_blank">политике конфиденциальности</a></label>
+  <label class="check"><input type="checkbox" name="consent" value="1" required${form.consent ? ' checked' : ''}><span>Согласна(-ен) на обработку персональных данных по <a href="/politika" target="_blank">политике конфиденциальности</a></span></label>
   <button class="btn btn-primary" type="submit">Отправить заявку</button>
 </form>`;
 }
@@ -170,10 +182,14 @@ const personLd = (s) => ({
   jobTitle: s.role,
   url: abs(profilePath(s)),
   image: s.photo ? abs(s.photo) : undefined,
+  telephone: s.phone ? telOf(s.phone).slice(4) : undefined,
   sameAs: [s.instagram, s.telegram, s.profiUrl].filter(Boolean),
 });
 
 module.exports = {
+  phoneKey,
+  telOf,
+  phoneLink,
   profilePath,
   offerPath,
   reviewsWord,

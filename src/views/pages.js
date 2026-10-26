@@ -170,6 +170,7 @@ ${preview ? '<div class="preview-bar">Предпросмотр: анкета с�
     ${s.badges && s.badges.length ? `<ul class="badges">${s.badges.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
     ${from ? `<p class="prof-price">от <b>${ui.money(from)}</b> / ${esc(from.unit)}</p>` : ''}
     <a class="btn btn-primary btn-block" href="#zapis">Записаться на консультацию</a>
+    ${s.phone ? `<a class="btn btn-ghost btn-block" href="${ui.telOf(s.phone)}">Позвонить: ${esc(s.phone)}</a>` : ''}
     ${s.telegram ? `<a class="btn btn-ghost btn-block" href="${esc(s.telegram)}" rel="nofollow noopener" target="_blank">Написать в Telegram</a>` : ''}
     ${s.instagram ? `<p class="small center"><a href="${esc(s.instagram)}" rel="nofollow noopener" target="_blank">Instagram*</a></p>` : ''}
     ${f.trial ? `<p class="muted small center">${esc(f.trialNote || 'Первая консультация — бесплатно')}</p>` : ''}
