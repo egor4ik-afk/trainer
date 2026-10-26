@@ -155,9 +155,9 @@ ${og.w && og.h ? `<meta property="og:image:width" content="${og.w}">\n<meta prop
 <meta property="og:image:alt" content="${esc(opts.ogTitle || title)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#1E1417">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=2">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="preload" href="/fonts/golos-text-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/golos-text-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>

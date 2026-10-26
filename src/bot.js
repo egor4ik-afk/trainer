@@ -24,7 +24,8 @@ const { nameDative } = require('./views/ui');
 const LIMIT_PER_MINUTE = 10;
 const IMG = path.join(__dirname, '..', 'public', 'img');
 const WELCOME_VERSION = 1;
-const AVATAR_VERSION = 1;
+const AVATAR_VERSION = 2;
+const GROUP_PHOTO_VERSION = 1;
 
 const appUrl = (p) => `${SITE.url}${p}`;
 const ownerName = () => ((db.get('specialists', SITE.owner) || {}).name || 'Евгения Шатова').split(' ')[0];
@@ -383,6 +384,7 @@ async function checkGroup() {
   const member = await support.group('getChatMember', { user_id: me.id }).catch(() => null);
   const canTopics = member && (member.status === 'creator' || (member.status === 'administrator' && member.can_manage_topics));
   console.log(`[bot] @${me.username} → «${chat.title}» (${chat.id}): темы ${chat.is_forum ? 'включены' : 'ВЫКЛЮЧЕНЫ'}, бот ${member ? member.status : '?'}${canTopics ? ', может управлять темами' : ' — нужно право «Управление темами»'}; AI ${ai.enabled() ? ai.model() : 'выключен'}`);
+  await setGroupPhoto(member);
   await tg.call('setMyCommands', {
     commands: [
       { command: 'close', description: 'Завершить разговор с клиентом' },
@@ -397,6 +399,21 @@ async function checkGroup() {
       })
       .then(() => support.setMeta({ hello: String(chat.id) }))
       .catch(() => {});
+  }
+}
+
+/** Фото группы поддержки — красный знак Shatova Pro, чтобы группа не путалась с ботом в списке чатов. Один раз на версию. */
+async function setGroupPhoto(member) {
+  if (support.meta().groupPhoto === GROUP_PHOTO_VERSION) return;
+  const canInfo = member && (member.status === 'creator' || (member.status === 'administrator' && member.can_change_info));
+  if (!canInfo) return console.log('[bot] фото группы не поставлено: у бота нет права «Изменение профиля группы»');
+  try {
+    const data = fs.readFileSync(path.join(IMG, 'support-group.jpg'));
+    await tg.upload('setChatPhoto', { chat_id: support.config().chatId }, { photo: { data, name: 'group.jpg', type: 'image/jpeg' } });
+    await support.setMeta({ groupPhoto: GROUP_PHOTO_VERSION });
+    console.log('[bot] фото группы обновлено');
+  } catch (e) {
+    console.error('[bot] фото группы не обновлено:', e.message);
   }
 }
 
