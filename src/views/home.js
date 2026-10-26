@@ -35,8 +35,8 @@ function home({ owner, specialists, offers, user, sent, error, form }) {
       </div>
     </div>
     <figure class="hero-photo">
-      ${heroSrc ? ui.img(heroSrc, { alt: 'Евгения Шатова на сцене Olympia 2025', w: heroW, h: heroH, eager: true, sizes: '(max-width: 960px) 100vw, 46vw' }) : '<span class="hero-photo-empty" aria-hidden="true"></span>'}
-      <figcaption class="stage-tag"><span class="tag-pro">IFBB PRO</span><span class="tag-ev">Olympia 2025 · Las Vegas</span></figcaption>
+      ${heroSrc ? ui.img(heroSrc, { alt: owner.heroAlt || 'Евгения Шатова на сцене в категории Bikini', w: heroW, h: heroH, eager: true, sizes: '(max-width: 960px) 100vw, 46vw' }) : '<span class="hero-photo-empty" aria-hidden="true"></span>'}
+      <figcaption class="stage-tag"><span class="tag-pro">IFBB PRO</span><span class="tag-ev">Bikini · участница Olympia 2025</span></figcaption>
     </figure>
   </div>
   <div class="wrap">
