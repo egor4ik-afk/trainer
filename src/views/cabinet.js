@@ -513,7 +513,7 @@ function mediaPage({ user, items, flash }) {
   <p class="hint">Фото уменьшаются и сжимаются прямо в браузере: большая версия до 1600 px и маленькая до 640 px.</p>
   <label class="file-drop">Выберите фото<input type="file" id="media-files" accept="image/*" multiple></label>
   <details class="media-import"><summary>Загрузить по ссылкам</summary>
-    <label>Ссылки на изображения, по одной в строке<textarea id="media-urls" rows="4"></textarea></label>
+    <label>Ссылки на изображения, по одной в строке; подпись можно добавить через « | »<textarea id="media-urls" rows="4"></textarea></label>
     <label>Подпись (alt) для всех<input id="media-alt" maxlength="200"></label>
     <button class="btn btn-ghost" type="button" id="media-import">Загрузить по ссылкам</button>
   </details>

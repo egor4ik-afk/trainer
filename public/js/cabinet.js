@@ -82,14 +82,18 @@
   });
 
   document.getElementById('media-import').addEventListener('click', function () {
-    var urls = document.getElementById('media-urls').value.split(/\s+/).filter(function (u) { return /^https:\/\//.test(u); });
-    var alt = document.getElementById('media-alt').value;
-    if (!urls.length) return say('Вставьте хотя бы одну ссылку, начинающуюся с https://');
-    run(urls, function (u) {
-      return fetch(u, { mode: 'cors' }).then(function (r) {
+    // Строка: «ссылка» или «ссылка | подпись».
+    var common = document.getElementById('media-alt').value;
+    var items = document.getElementById('media-urls').value.split(/\n+/).map(function (line) {
+      var parts = line.split(' | ');
+      return { url: parts[0].trim(), alt: (parts[1] || common || '').trim() };
+    }).filter(function (it) { return /^https:\/\//.test(it.url); });
+    if (!items.length) return say('Вставьте хотя бы одну ссылку, начинающуюся с https://');
+    run(items, function (it) {
+      return fetch(it.url, { mode: 'cors' }).then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.blob();
-      }).then(function (b) { return { blob: b, alt: alt }; });
+      }).then(function (b) { return { blob: b, alt: it.alt }; });
     });
   });
 })();
