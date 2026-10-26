@@ -356,8 +356,13 @@ async function upsert(col, key, data, now) {
   } else if (!cur.editedAt && (cur.seedVersion || 0) < SEED_VERSION) {
     // Фото, загруженные через кабинет, сохраняем.
     const keep = {};
-    for (const k of ['photo', 'photoSm', 'photoWidth', 'photoHeight', 'ogImage', 'cover', 'gallery', 'modules']) {
-      if (cur[k] && (String(cur[k]).startsWith('/m/') || (Array.isArray(cur[k]) && cur[k].length))) keep[k] = cur[k];
+    const MEDIA_KEYS = ['photo', 'photoWidth', 'photoHeight', 'heroPhoto', 'heroWidth', 'heroHeight', 'posingPhoto', 'posingWidth', 'posingHeight', 'ogImage', 'cover', 'coverWidth', 'coverHeight', 'gallery', 'modules'];
+    const fromMedia = (v) => String(v).startsWith('/m/') || (Array.isArray(v) && v.length);
+    // Размеры сохраняем вместе с фото из медиатеки.
+    for (const k of MEDIA_KEYS) {
+      const base = k.replace(/(Width|Height)$/, '').replace(/^(hero|posing|cover)$/, '$1Photo');
+      const ref = /(Width|Height)$/.test(k) ? cur[{ photo: 'photo', heroPhoto: 'heroPhoto', posingPhoto: 'posingPhoto', coverPhoto: 'cover' }[base] || base] : cur[k];
+      if (cur[k] != null && ref && fromMedia(ref)) keep[k] = cur[k];
     }
     await db.put(col, key, { ...data, ...keep, status: cur.status || data.status, seedVersion: SEED_VERSION, createdAt: cur.createdAt, updatedAt: now });
     console.log(`[seed] ${col}/${key} refreshed to v${SEED_VERSION}`);
