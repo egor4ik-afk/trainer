@@ -5,8 +5,8 @@
  * пометкой «AI-ассистент». Тренер написал в тему — AI в этом разговоре
  * молчит до /ai или /close (как в HelpMame).
  *
- * Ключ — ANTHROPIC_API_KEY; запросы идут через зарубежный прокси (AI_PROXY_URL
- * или тот же TG_PROXY_URL). CLAUDE_MODEL меняет модель, AI_REPLIES=0 выключает.
+ * Ключ — ANTHROPIC_API_KEY; запросы идут через зарубежный прокси (AI_PROXY_URL,
+ * EGRESS_PROXY_URL или тот же TG_PROXY_URL). CLAUDE_MODEL меняет модель, AI_REPLIES=0 выключает.
  */
 const { ProxyAgent, fetch: undiciFetch } = require('undici');
 const db = require('./db');
@@ -21,7 +21,7 @@ const model = () => process.env.CLAUDE_MODEL || DEFAULT_MODEL;
 
 let agent = null;
 function dispatcher() {
-  const url = process.env.AI_PROXY_URL || process.env.TG_PROXY_URL || '';
+  const url = process.env.AI_PROXY_URL || process.env.EGRESS_PROXY_URL || process.env.TG_PROXY_URL || '';
   if (!url) return undefined;
   if (!agent || agent.url !== url) agent = { url, d: new ProxyAgent(url) };
   return agent.d;
@@ -83,23 +83,38 @@ function toMessages(history) {
   return out;
 }
 
-async function generate(history) {
-  const messages = toMessages(history);
-  if (!messages.length || messages[messages.length - 1].role !== 'user') return null;
+async function callApi(body) {
   const res = await undiciFetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: model(),
-      max_tokens: 1200,
-      system: [{ type: 'text', text: system(), cache_control: { type: 'ephemeral' } }],
-      messages,
-    }),
+    body: JSON.stringify({ model: model(), ...body }),
     dispatcher: dispatcher(),
     signal: AbortSignal.timeout(90000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(data.error && data.error.message) || 'ошибка'}`);
+  return data;
+}
+
+/** Проверка при запуске: ключ и прокси работают. */
+async function ping() {
+  if (!enabled()) return console.log('[ai] выключен: нет ANTHROPIC_API_KEY');
+  try {
+    await callApi({ max_tokens: 8, messages: [{ role: 'user', content: 'Ответь одним словом: готов?' }] });
+    console.log(`[ai] ${model()} отвечает`);
+  } catch (e) {
+    console.error(`[ai] ${model()} не отвечает: ${e.message}`);
+  }
+}
+
+async function generate(history) {
+  const messages = toMessages(history);
+  if (!messages.length || messages[messages.length - 1].role !== 'user') return null;
+  const data = await callApi({
+    max_tokens: 1200,
+    system: [{ type: 'text', text: system(), cache_control: { type: 'ephemeral' } }],
+    messages,
+  });
   if (data.stop_reason === 'refusal') return null;
   return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim() || null;
 }
@@ -154,4 +169,4 @@ function schedule(threadId) {
   );
 }
 
-module.exports = { enabled, model, schedule, system };
+module.exports = { enabled, model, schedule, system, ping };

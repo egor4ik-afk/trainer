@@ -54,7 +54,7 @@
 | `TELEGRAM_BOT_TOKEN` | Бот заявок и поддержки |
 | `TELEGRAM_SUPPORT_CHAT_ID` | Группа поддержки с темами (бот — админ с правом «Управление темами») |
 | `TELEGRAM_WEBHOOK_SECRET` | Секрет вебхука: без него вебхук ничего не принимает |
-| `TG_PROXY_URL` | HTTP-прокси для api.telegram.org (из России напрямую не открывается) |
+| `TG_PROXY_URL`, `EGRESS_PROXY_URL` | HTTP-прокси для api.telegram.org и api.anthropic.com (из России напрямую не открываются) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `AI_REPLIES=0` | AI-ассистент в боте (по умолчанию claude-sonnet-5-5); без ключа молчит |
 | `INDEXNOW_KEY` | Ключ IndexNow для Яндекса (файл `/<ключ>.txt` отдаётся сайтом автоматически) |
 | `INDEXNOW_DISABLED=1` | Временно не сообщать Яндексу о страницах (например, пока домен не привязан) |
