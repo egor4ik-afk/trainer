@@ -216,6 +216,8 @@ ul,ol{margin:0;padding:0;list-style:none}
 .form-phone a{white-space:nowrap}
 .block--ink .form-phone a{color:#fff}
 .lead-wrap>.sent{grid-column:1/-1}
+.sent .sent-tg{margin:18px 0 10px}
+.sent-note{font-size:15px;opacity:.85}
 .block--ink h2{color:#fff}
 .form-intro{color:var(--ink-2);max-width:30em}
 .block--ink .form-intro{color:#E3D3D7}

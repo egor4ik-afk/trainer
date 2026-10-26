@@ -147,7 +147,11 @@ const phoneLink = (p, cls) => `<a${cls ? ` class="${cls}"` : ''} href="${telOf(p
  */
 function leadForm({ s, offer, sent, error, form = {}, title, intro, action = '/zayavka', anchor = 'zapis', from = 'profile' }) {
   if (sent) {
-    return `<div class="sent" role="status"><h2>Заявка отправлена</h2><p>${esc(s.name.split(' ')[0])} свяжется с вами в мессенджере или по телефону, обычно в течение дня.</p></div>`;
+    // sent.tg — ссылка на бота: ответ по заявке придёт в Telegram
+    const tg = sent && sent.tg
+      ? `<p class="sent-tg"><a class="btn btn-primary" href="${esc(sent.tg)}" target="_blank" rel="noopener">Получать ответ в Telegram</a></p><p class="sent-note">Бот пришлёт ответ прямо в Telegram — там же можно сразу задать вопрос.</p>`
+      : sent && sent.linked ? '<p class="sent-note">Ответ придёт вам в Telegram-бот.</p>' : '';
+    return `<div class="sent" role="status"><h2>Заявка отправлена</h2><p>${esc(s.name.split(' ')[0])} свяжется с вами в мессенджере или по телефону, обычно в течение дня.</p>${tg}</div>`;
   }
   const v = (k) => esc(form[k] || '');
   const goal = form.goal || (offer && (GOALS.find((g) => g.offer === offer.slug) || {}).id) || '';

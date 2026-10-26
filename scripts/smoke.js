@@ -62,6 +62,9 @@ const post = (p, body, cookie) => fetch(BASE + p, { method: 'POST', headers: { '
       ['/llms-full.txt', 200, 'Olympia 2025'],
       ['/googlecee020f869c68a59.html', 200, 'google-site-verification'],
       ['/kabinet', 200, 'Вход в кабинет'],
+      ['/?sent=1', 200, 'Заявка отправлена'],
+      ['/trenery/evgeniya-shatova?sent=1', 200, 'Заявка отправлена'],
+      ['/programmy/onlayn-vedenie?sent=1', 200, 'Заявка отправлена'],
       ['/net-takoy', 404, 'Такой страницы нет'],
     ]) {
       const r = await fetch(BASE + p, { redirect: 'manual' });
@@ -140,6 +143,10 @@ const post = (p, body, cookie) => fetch(BASE + p, { method: 'POST', headers: { '
     ok(my.includes('План питания') && my.includes('доступ до'), 'программа в «Моих программах»');
     const clientCab = await fetch(BASE + '/kabinet/zakazy', { headers: { cookie: client }, redirect: 'manual' });
     ok(clientCab.status === 404, 'ученику недоступны заказы');
+
+    // вебхук Telegram без секрета не принимает ничего
+    const hook = await fetch(BASE + '/api/telegram/webhook', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"message":{"text":"hi"}}' });
+    ok(hook.status === 401, 'вебхук Telegram без секрета — 401');
 
     // фото: загрузка и выдача
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cf000000020001e221bc330000000049454e44ae426082', 'hex');

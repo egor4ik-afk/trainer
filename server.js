@@ -17,6 +17,8 @@ const views = require('./src/views/pages');
 const { home } = require('./src/views/home');
 const shop = require('./src/views/offers');
 const cab = require('./src/views/cabinet');
+const support = require('./src/support');
+const bot = require('./src/bot');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -45,7 +47,8 @@ app.use((req, res, next) => {
   res.set({
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'X-Frame-Options': 'SAMEORIGIN',
+    // Сайт открывается мини-приложением из бота, в том числе в web.telegram.org
+    'Content-Security-Policy': "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     ...(IS_PROD ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
   });
@@ -85,6 +88,21 @@ app.get('/m/:file', async (req, res, next) => {
 
 // Уведомления ЮKassa приходят в JSON; остальные формы — urlencoded.
 app.post('/api/yookassa', express.json({ limit: '64kb' }), (req, res, next) => yookassaWebhook(req, res).catch(next));
+
+// Вебхук Telegram: личка бота и ответы тренера из тем группы. Ставит панель
+// RelaxNet через свой приёмник, секрет — TELEGRAM_WEBHOOK_SECRET.
+app.post('/api/telegram/webhook', express.json({ limit: '1mb' }), async (req, res) => {
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+  const got = String(req.get('x-telegram-bot-api-secret-token') || '');
+  const okSecret = secret && got.length === secret.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(secret));
+  if (!okSecret) return res.status(401).json({ ok: false });
+  try {
+    await bot.handleUpdate(req.body || {});
+  } catch (e) {
+    console.error('[bot]', e.message);
+  }
+  res.json({ ok: true }); // всегда 200: иначе Telegram будет повторять одно и то же
+});
 app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 
 // Текущий пользователь кабинета.
@@ -144,7 +162,7 @@ setInterval(flushViews, 30_000).unref();
 app.get('/', (req, res) => {
   const o = owner();
   if (o) countView(req, o.slug);
-  res.send(home({ owner: o, specialists: trainers(), offers: visibleOffers(), user: req.user, sent: req.query.sent === '1' }));
+  res.send(home({ owner: o, specialists: trainers(), offers: visibleOffers(), user: req.user, sent: req.query.sent === '1' && sentInfo(req) }));
 });
 
 app.get('/programmy', (req, res) => res.send(shop.catalog({ offers: visibleOffers(), user: req.user, trainersBySlug: bySlug(trainers()) })));
@@ -159,7 +177,7 @@ app.get('/programmy/:slug', (req, res, next) => {
       o,
       trainer: db.get('specialists', o.trainer),
       user: req.user,
-      sent: req.query.sent === '1',
+      sent: req.query.sent === '1' && sentInfo(req),
       waitSent: req.query.wait === '1',
       form: goal ? { goal: goal.id } : {},
       hasAccess: Boolean(req.user && req.user.role === 'client' && accessOf(req.user, o.slug)),
@@ -175,7 +193,7 @@ app.get('/trenery/:slug', (req, res, next) => {
   const canPreview = req.user && (req.user.role === 'admin' || req.user.specialistId === s.slug);
   if (s.status !== 'published' && !canPreview) return next();
   if (s.status === 'published') countView(req, s.slug);
-  res.send(views.profile({ s, offers: visibleOffers(), user: req.user, sent: req.query.sent === '1', preview: s.status !== 'published' }));
+  res.send(views.profile({ s, offers: visibleOffers(), user: req.user, sent: req.query.sent === '1' && sentInfo(req), preview: s.status !== 'published' }));
 });
 
 app.get('/zanyatiya', (req, res) => res.send(views.zanyatiya({ specialists: trainers(), offers: visibleOffers(), user: req.user })));
@@ -190,20 +208,20 @@ app.get('/oferta', (req, res) => res.send(views.oferta({ user: req.user })));
 
 /* ---------- уведомления ---------- */
 
-async function notifyTelegram(lines, s) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chat = (s && s.telegramChatId) || process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chat) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat, text: lines.filter(Boolean).join('\n'), disable_web_page_preview: true }),
-      signal: AbortSignal.timeout(8000),
-    });
-  } catch (err) {
-    console.error('[telegram] notify failed:', err.message);
-  }
+// Заявки, предзаписи и заказы — в тему клиента в группе поддержки (см. src/support.js).
+const TG_COOKIE = 'tm_tg';
+
+/** После заявки: ссылка «Получать ответ в Telegram» — бот привяжет Telegram к теме заявки. */
+function sentInfo(req) {
+  const bot = support.meta().username;
+  if (!bot) return true;
+  const t = support.byToken(auth.readCookie(req, TG_COOKIE) || '');
+  if (t && t.tgChatId) return { linked: true };
+  return { tg: `https://t.me/${bot}?start=${t ? 'l' + t.linkToken : 'consult'}` };
+}
+
+function rememberThread(res, t) {
+  if (t) res.cookie(TG_COOKIE, t.linkToken, { httpOnly: true, sameSite: 'lax', secure: IS_PROD, maxAge: 30 * 864e5, path: '/' });
 }
 
 const newId = () => `${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
@@ -253,7 +271,21 @@ app.post('/zayavka', async (req, res, next) => {
   lead.consentAt = lead.createdAt;
   await db.put('leads', newId(), lead);
   const goal = goalById(form.goal);
-  notifyTelegram([`Новая заявка на ${SITE.host}`, `Тренер: ${s.name}`, `Имя: ${lead.name}`, `Контакт: ${lead.contact}`, offer && `Формат: ${offer.title}`, goal && `Цель: ${goal.title}`, lead.message && `Комментарий: ${lead.message}`, `Кабинет: ${SITE.url}/kabinet/zayavki`], s);
+  const kind = goal ? goal.id : offer && offer.slug === 'pozirovanie' ? 'posing' : offer && offer.slug === 'podgotovka-k-sorevnovaniyam' ? 'stage' : 'chat';
+  const t = await support.siteEvent({
+    kind,
+    name: lead.name,
+    contact: lead.contact,
+    lines: [
+      `📝 Заявка с сайта${s.slug !== SITE.owner ? ` — к тренеру ${s.name}` : ''}`,
+      `Имя: ${lead.name}`,
+      `Контакт: ${lead.contact}`,
+      offer && `Формат: ${offer.title}`,
+      goal ? `Цель: ${goal.title}` : form.goal === 'other' && 'Цель: другое',
+      lead.message && `Комментарий: ${lead.message}`,
+    ],
+  });
+  rememberThread(res, t);
   res.redirect(303, `${back}?sent=1#zapis`);
 });
 
@@ -271,7 +303,7 @@ app.post('/predzapis', async (req, res, next) => {
   if (error) return res.status(400).send(shop.offerPage({ o, trainer: db.get('specialists', o.trainer), user: req.user, waitError: error, waitForm: { contact } }));
   const now = new Date().toISOString();
   await db.put('leads', newId(), { type: 'waitlist', name: 'Предзапись', contact, offer: o.slug, offerTitle: o.title, specialistId: o.trainer, status: 'new', createdAt: now, consentAt: now });
-  notifyTelegram([`Предзапись на «${o.title}»`, `Контакт: ${contact}`]);
+  rememberThread(res, await support.siteEvent({ kind: 'waitlist', contact, lines: [`📆 Предзапись на «${o.title}»`, `Контакт: ${contact}`] }));
   res.redirect(303, `${ui.offerPath(o)}?wait=1#ceny`);
 });
 
@@ -338,7 +370,14 @@ app.post('/zakaz/:slug/:pkg', async (req, res, next) => {
     const id = crypto.randomBytes(8).toString('hex');
     await db.put('orders', id, order);
     auth.issue(res, user.id);
-    notifyTelegram([`Новый заказ на ${SITE.host}`, `${o.title} — ${pkg.title}`, `Сумма: ${layout.price(pkg.price)}`, `Покупатель: ${form.name}, ${form.email}, ${form.phone}`, `Кабинет: ${SITE.url}/kabinet/zakazy`]);
+    support.siteEvent({
+      kind: 'order',
+      name: form.name,
+      contact: form.phone,
+      phone: form.phone,
+      email: form.email,
+      lines: [`💰 Заказ: ${o.title} — ${pkg.title}`, `Сумма: ${layout.price(pkg.price)}`, `Покупатель: ${form.name}`, `Телефон: ${form.phone}`, `Почта: ${form.email}`, payments.enabled() ? 'Ждёт оплаты через ЮKassa' : `Ждёт оплаты — отметить: ${SITE.url}/kabinet/zakazy`],
+    }).catch(() => {});
 
     if (payments.enabled()) {
       const p = await payments.createPayment({ order: { ...order, id }, description: `${o.title} — ${pkg.title}`, returnUrl: `${SITE.url}/zakaz/status/${id}` });
@@ -358,7 +397,14 @@ async function markPaid(id, paymentId) {
   const paidAt = new Date().toISOString();
   const accessUntil = order.accessDays ? new Date(Date.now() + order.accessDays * 864e5).toISOString() : null;
   const updated = await db.put('orders', id, { ...order, status: 'paid', paidAt, accessUntil, ...(paymentId ? { paymentId } : {}) });
-  notifyTelegram([`Оплачен заказ на ${SITE.host}`, `${order.offerTitle} — ${order.packageTitle}`, `Сумма: ${layout.price(order.amount)}`, `Покупатель: ${order.customer.name}, ${order.customer.email}, ${order.customer.phone}`]);
+  support.siteEvent({
+    kind: 'order',
+    name: order.customer.name,
+    contact: order.customer.phone,
+    phone: order.customer.phone,
+    email: order.customer.email,
+    lines: [`✅ Оплачен заказ: ${order.offerTitle} — ${order.packageTitle}`, `Сумма: ${layout.price(order.amount)}`, accessUntil ? `Доступ до ${layout.ruDate(accessUntil)}` : null],
+  }).catch(() => {});
   return updated;
 }
 
@@ -1049,6 +1095,7 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`trainer.moscow on :${PORT} (store: ${db.kind}, payments: ${payments.enabled() ? 'yookassa' : 'manual'})`);
     setTimeout(() => announceOnStart().catch(() => {}), 15_000);
+    setTimeout(() => bot.setup().catch((e) => console.error('[bot] настройка:', e.message)), 3000);
   });
 }
 

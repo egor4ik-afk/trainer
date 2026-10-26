@@ -94,4 +94,4 @@ setInterval(() => {
   for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
 }, 60_000).unref();
 
-module.exports = { setSecret, hashPassword, verifyPassword, issue, clear, sessionUserId, csrfToken, checkCsrf, rateLimit };
+module.exports = { setSecret, hashPassword, verifyPassword, issue, clear, readCookie, sessionUserId, csrfToken, checkCsrf, rateLimit };
