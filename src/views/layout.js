@@ -1,5 +1,5 @@
 'use strict';
-const { SITE, SECTIONS, SUBJECTS } = require('../catalog');
+const { SITE, DIRECTIONS } = require('../catalog');
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ESC[c]);
@@ -33,6 +33,10 @@ const setInlineCss = (css) => (inlineCss = css.replace(/\/\*[\s\S]*?\*\//g, '').
 
 const abs = (p) => (p && p.startsWith('http') ? p : SITE.url + (p || '/'));
 
+// Картинка для превью ссылок по умолчанию; после загрузки фото в медиатеку её можно поменять.
+let defaultOg = { url: '/img/og-default.png', w: 1200, h: 630 };
+const setDefaultOg = (og) => (defaultOg = og && og.url ? og : defaultOg);
+
 function jsonLd(obj) {
   return `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 }
@@ -55,45 +59,49 @@ function breadcrumbs(items) {
     .join('')}</ol></nav>`;
 }
 
+const NAV = [
+  { key: 'vedenie', href: '/programmy/onlayn-vedenie', title: 'Онлайн-ведение' },
+  { key: 'pozirovanie', href: '/programmy/pozirovanie', title: 'Позирование' },
+  { key: 'programmy', href: '/programmy', title: 'Программы' },
+  { key: 'trenery', href: '/trenery', title: 'Тренеры' },
+];
+
 function header(current, user) {
-  const link = (key) => {
-    const s = SECTIONS[key];
-    return `<a class="nav-link line-${s.line}" href="/${s.slug}"${current === key ? ' aria-current="page"' : ''}><span class="dot" aria-hidden="true"></span>${s.title}</a>`;
-  };
   return `<header class="site-header">
   <div class="wrap header-row">
-    <a class="brand" href="/" aria-label="trainer.moscow — на главную">
-      <svg class="brand-mark" viewBox="0 0 44 16" aria-hidden="true"><rect x="2" y="6.5" width="40" height="3" rx="1.5"/><circle cx="7" cy="8" r="5" class="m-blue"/><circle cx="22" cy="8" r="5" class="m-green"/><circle cx="37" cy="8" r="5" class="m-orange"/></svg>
-      <span>trainer<span class="brand-tld">.moscow</span></span>
-    </a>
-    <nav class="nav" aria-label="Разделы">${link('repetitory')}${link('trenery')}${link('zanyatiya')}</nav>
-    <a class="btn btn-ghost header-cta" href="/kabinet">${user ? 'Кабинет' : 'Войти'}</a>
+    <a class="brand" href="/" aria-label="${esc(SITE.brand)} — на главную"><span class="brand-name">Shatova</span><span class="brand-pro">Pro</span></a>
+    <nav class="nav" aria-label="Разделы">${NAV.map((n) => `<a href="${n.href}"${current === n.key ? ' aria-current="page"' : ''}>${n.title}</a>`).join('')}</nav>
+    <a class="header-login" href="/kabinet">${user ? 'Кабинет' : 'Войти'}</a>
   </div>
 </header>`;
 }
 
 function footer() {
-  const subj = SUBJECTS.map((s) => `<li><a href="/zanyatiya/${s.slug}">${esc(s.title)}</a></li>`).join('');
+  const dirs = DIRECTIONS.slice(0, 6).map((s) => `<li><a href="/zanyatiya/${s.slug}">${esc(s.title)}</a></li>`).join('');
   return `<footer class="site-footer">
   <div class="wrap footer-grid">
-    <div>
-      <p class="footer-brand">trainer.moscow</p>
-      <p class="muted">Репетиторы и тренеры в Москве и Подмосковье. Занятия онлайн и очно.</p>
+    <div class="footer-about">
+      <p class="footer-brand"><span class="brand-name">Shatova</span><span class="brand-pro">Pro</span></p>
+      <p>Евгения Шатова — онлайн-тренер и тренер по позированию, IFBB Pro Bikini.</p>
+      <p><a href="${SITE.instagram}" rel="nofollow noopener" target="_blank">Instagram*: @${SITE.instagramHandle}</a></p>
     </div>
     <div>
-      <p class="footer-h">Разделы</p>
-      <ul><li><a href="/repetitory">Репетиторы</a></li><li><a href="/trenery">Тренеры</a></li><li><a href="/zanyatiya">Занятия</a></li></ul>
+      <p class="footer-h">Форматы</p>
+      <ul><li><a href="/programmy/onlayn-vedenie">Онлайн-ведение</a></li><li><a href="/programmy/pozirovanie">Позирование</a></li><li><a href="/programmy/podgotovka-k-sorevnovaniyam">Подготовка к соревнованиям</a></li><li><a href="/programmy">Программы тренировок и питания</a></li></ul>
     </div>
     <div>
       <p class="footer-h">Направления</p>
-      <ul>${subj}</ul>
+      <ul>${dirs}</ul>
     </div>
     <div>
-      <p class="footer-h">Специалистам</p>
-      <ul><li><a href="/kabinet/registraciya">Создать анкету</a></li><li><a href="/kabinet">Личный кабинет</a></li><li><a href="/politika">Политика конфиденциальности</a></li></ul>
+      <p class="footer-h">Сайт</p>
+      <ul><li><a href="/trenery">Тренеры</a></li><li><a href="/kabinet">Личный кабинет</a></li><li><a href="/kabinet/registraciya">Тренерам: создать анкету</a></li><li><a href="/oferta">Публичная оферта</a></li><li><a href="/politika">Политика конфиденциальности</a></li></ul>
     </div>
   </div>
-  <div class="wrap footer-bottom muted">© ${new Date().getFullYear()} trainer.moscow</div>
+  <div class="wrap footer-bottom">
+    <p>© ${new Date().getFullYear()} ${esc(SITE.brand)}, ${esc(SITE.host)}</p>
+    <p class="footer-note">* Instagram принадлежит компании Meta, признанной экстремистской и запрещённой в России.</p>
+  </div>
 </footer>`;
 }
 
@@ -113,7 +121,8 @@ function page(opts) {
   if (title.length > 62 && title.endsWith(` | ${SITE.name}`)) title = title.slice(0, -(` | ${SITE.name}`).length);
   const desc = opts.description || SITE.description;
   const url = abs(opts.path || '/');
-  const image = abs(opts.image || '/img/og-default.png');
+  const og = opts.image ? { url: opts.image, w: opts.imageW, h: opts.imageH } : defaultOg;
+  const image = abs(og.url);
   const robots = opts.noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1';
   const verif = [
     process.env.YANDEX_VERIFICATION && `<meta name="yandex-verification" content="${esc(process.env.YANDEX_VERIFICATION)}">`,
@@ -139,18 +148,19 @@ ${opts.noindex ? '' : `<link rel="canonical" href="${esc(url)}">`}
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(url)}">
 <meta property="og:image" content="${esc(image)}">
-${/\/img\/og-/.test(image) ? '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">' : ''}
+${og.w && og.h ? `<meta property="og:image:width" content="${og.w}">\n<meta property="og:image:height" content="${og.h}">` : /\/img\/og-/.test(image) ? '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">' : ''}
 <meta property="og:image:alt" content="${esc(opts.ogTitle || title)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#16202E">
+<meta name="theme-color" content="#1E1417">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="preload" href="/fonts/golos-text-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/golos-text-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/unbounded-cyrillic-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/unbounded-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/fira-sans-extra-condensed-cyrillic-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/fira-sans-extra-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+${(opts.preload || []).map((p) => `<link rel="preload" as="image" href="${esc(p.href)}"${p.srcset ? ` imagesrcset="${esc(p.srcset)}" imagesizes="${esc(p.sizes || '100vw')}"` : ''} fetchpriority="high">`).join('')}
 <link rel="preload" href="/fonts/golos-text-cyrillic-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 ${inlineCss ? `<style>${inlineCss}</style>` : `<link rel="stylesheet" href="/css/site.css?v=${assetVersion}">`}
 ${verif}${ld}
@@ -161,9 +171,10 @@ ${header(opts.section, opts.user)}
 <main id="main">${opts.body}</main>
 ${footer()}
 <script src="/js/site.js?v=${assetVersion}" defer></script>
+${(opts.scripts || []).map((src) => `<script src="${esc(src)}?v=${assetVersion}" defer></script>`).join('')}
 ${metrika()}
 </body>
 </html>`;
 }
 
-module.exports = { esc, ruDate, price, plural, page, breadcrumbs, breadcrumbsLd, abs, setAssetVersion, setInlineCss };
+module.exports = { esc, ruDate, price, plural, page, breadcrumbs, breadcrumbsLd, abs, jsonLd, setAssetVersion, setInlineCss, setDefaultOg };

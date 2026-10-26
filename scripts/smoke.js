@@ -1,7 +1,8 @@
 'use strict';
 /*
  * Быстрая проверка: запускает сайт на временной базе, обходит страницы,
- * отправляет заявку и проверяет кабинет. Запуск: npm run check
+ * отправляет заявку, оформляет заказ, открывает доступ и проверяет кабинет.
+ * Запуск: npm run check
  */
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -13,8 +14,9 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'trainer-'));
 const PASS = 'smoke-' + Math.random().toString(36).slice(2);
 
-const env = { ...process.env, PORT: String(PORT), DATA_FILE: path.join(tmp, 'db.json'), ADMIN_PASSWORD: PASS, RUSLAN_PASSWORD: PASS, NODE_ENV: 'development' };
+const env = { ...process.env, PORT: String(PORT), DATA_FILE: path.join(tmp, 'db.json'), MEDIA_DIR: path.join(tmp, 'media'), ADMIN_PASSWORD: PASS, DARYA_PASSWORD: PASS, NODE_ENV: 'development' };
 delete env.DATABASE_URL;
+delete env.YOOKASSA_SHOP_ID;
 const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env, stdio: ['ignore', 'pipe', 'inherit'] });
 
 let failed = 0;
@@ -36,25 +38,29 @@ async function waitUp() {
 
 const form = (o) => new URLSearchParams(o).toString();
 const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
+const post = (p, body, cookie) => fetch(BASE + p, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', ...(cookie ? { cookie } : {}) }, body: form(body), redirect: 'manual' });
 
 (async () => {
   try {
     await waitUp();
     for (const [p, code, needle] of [
-      ['/', 200, 'Руслан Алиев'],
-      ['/repetitory', 200, 'Репетиторы в Москве'],
+      ['/', 200, 'Евгения <span>Шатова</span>'],
+      ['/programmy', 200, 'Онлайн-ведение'],
+      ['/programmy/onlayn-vedenie', 200, '"@type":"Service"'],
+      ['/programmy/trenirovki-v-zale', 200, 'Узнать о старте'],
       ['/trenery', 200, 'Дарья Калашникова'],
-      ['/trenery/darya-kalashnikova', 200, 'Фото с тренировок'],
-      ['/zanyatiya/onlayn-trenirovki', 200, 'FAQPage'],
-      ['/llms.txt', 200, '## Специалисты'],
-      ['/llms-full.txt', 200, 'Услуги и цены:'],
-      ['/googlecee020f869c68a59.html', 200, 'google-site-verification: googlecee020f869c68a59.html'],
-      ['/zanyatiya', 200, 'Занятия и цены'],
-      ['/zanyatiya/ege-geografiya', 200, 'Подготовка к ЕГЭ по географии'],
-      ['/repetitory/ruslan-aliev', 200, 'ProfilePage'],
+      ['/trenery/evgeniya-shatova', 200, 'ProfilePage'],
+      ['/trenery/darya-kalashnikova', 200, 'Записаться к Дарье Калашниковой'],
+      ['/trenery/aleksandr-erokhin', 404, ''],
+      ['/zanyatiya', 200, 'Направления'],
+      ['/zanyatiya/pozirovanie-bikini', 200, 'FAQPage'],
+      ['/oferta', 200, 'Публичная оферта'],
       ['/politika', 200, '152-ФЗ'],
-      ['/robots.txt', 200, 'Sitemap: https://trainer.moscow/sitemap.xml'],
-      ['/sitemap.xml', 200, '/repetitory/ruslan-aliev'],
+      ['/robots.txt', 200, 'User-agent: GPTBot'],
+      ['/sitemap.xml', 200, '/programmy/onlayn-vedenie'],
+      ['/llms.txt', 200, 'Евгения Шатова'],
+      ['/llms-full.txt', 200, 'Olympia 2025'],
+      ['/googlecee020f869c68a59.html', 200, 'google-site-verification'],
       ['/kabinet', 200, 'Вход в кабинет'],
       ['/net-takoy', 404, 'Такой страницы нет'],
     ]) {
@@ -62,59 +68,81 @@ const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
       const t = await r.text();
       ok(r.status === code && t.includes(needle), `${p} → ${r.status}`);
     }
-    const trenery = await (await fetch(BASE + '/trenery')).text();
-    ok(!trenery.includes('noindex') && trenery.includes('$12'), '/trenery открыта для индексации, цены в долларах');
-    const daria = await (await fetch(BASE + '/trenery/darya-kalashnikova')).text();
-    ok(daria.includes('Записаться к Дарье Калашниковой') && daria.includes('https://t.me/kalashadasha') && !/instagram/i.test(daria), 'анкета Дарьи: падеж, Telegram, без Instagram');
-    ok(daria.includes('<style>') && !daria.includes('rel="stylesheet"'), 'стили встроены в страницу');
-    const robots = await (await fetch(BASE + '/robots.txt')).text();
-    ok(robots.includes('User-agent: GPTBot') && robots.includes('User-agent: ClaudeBot') && robots.includes('User-agent: YandexAdditional'), 'robots.txt открыт для AI-ботов');
-    const home = await (await fetch(BASE + '/')).text();
-    ok(/<link rel="canonical" href="https:\/\/trainer\.moscow\/">/.test(home), 'canonical на главной');
-    ok(home.includes('og:image'), 'og:image на главной');
-    const r301 = await fetch(BASE + '/repetitory/', { redirect: 'manual' });
-    ok(r301.status === 301 && r301.headers.get('location') === '/repetitory', 'слеш в конце → 301');
-
-    // заявка
-    const bad = await fetch(BASE + '/zayavka', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ specialist: 'ruslan-aliev', name: 'Тест', contact: '12', consent: '1' }), redirect: 'manual' });
-    ok(bad.status === 400, 'заявка с плохим телефоном отклонена');
-    const good = await fetch(BASE + '/zayavka', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ specialist: 'ruslan-aliev', name: 'Мама Пети', contact: '+7 900 123-45-67', subject: 'oge-geografiya', grade: '9 класс', format: 'онлайн', message: 'Проверка', consent: '1' }), redirect: 'manual' });
-    ok(good.status === 303 && good.headers.get('location').includes('sent=1'), 'заявка принята');
-
-    // кабинет
-    const badLogin = await fetch(BASE + '/kabinet/vhod', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ login: 'ruslan', password: 'wrong' }), redirect: 'manual' });
-    ok(badLogin.status === 401, 'неверный пароль не пускает');
-    const login = await fetch(BASE + '/kabinet/vhod', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ login: 'ruslan', password: PASS }), redirect: 'manual' });
-    const cookie = cookieOf(login);
-    ok(login.status === 303 && cookie.startsWith('tm_sess='), 'вход Руслана');
-    const leads = await (await fetch(BASE + '/kabinet/zayavki', { headers: { cookie } })).text();
-    ok(leads.includes('Мама Пети') && leads.includes('tel:+79001234567'), 'заявка видна в кабинете');
-    const csrf = (leads.match(/name="_csrf" value="([^"]+)"/) || [])[1];
-    const leadId = (leads.match(/action="\/kabinet\/zayavki\/([^"]+)"/) || [])[1];
-    const upd = await fetch(BASE + `/kabinet/zayavki/${leadId}`, { method: 'POST', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: csrf, status: 'in_work' }), redirect: 'manual' });
-    ok(upd.status === 303, 'смена статуса заявки');
-    const noCsrf = await fetch(BASE + `/kabinet/zayavki/${leadId}`, { method: 'POST', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: form({ status: 'done' }), redirect: 'manual' });
-    ok(noCsrf.status === 403, 'без CSRF-токена отказ');
-    for (const p of ['/kabinet/anketa', '/kabinet/statistika', '/kabinet/nastroyki']) {
-      const r = await fetch(BASE + p, { headers: { cookie } });
-      ok(r.status === 200, `${p} → ${r.status}`);
+    for (const [from, to] of [['/repetitory', '/trenery'], ['/repetitory/ruslan-aliev', '/trenery'], ['/zanyatiya/geografiya', '/programmy']]) {
+      const r = await fetch(BASE + from, { redirect: 'manual' });
+      ok(r.status === 301 && r.headers.get('location') === to, `${from} → 301 ${to}`);
     }
-    const mod = await fetch(BASE + '/kabinet/moderaciya', { headers: { cookie } });
-    ok(mod.status === 404, 'модерация недоступна специалисту');
+    const home = await (await fetch(BASE + '/')).text();
+    ok(!/Руслан|репетитор/i.test(home), 'на главной нет репетиторов');
+    ok(/<link rel="canonical" href="https:\/\/trainer\.moscow\/">/.test(home), 'canonical на главной');
+    ok(home.includes('Instagram принадлежит компании Meta'), 'пометка про Meta в подвале');
 
-    // регистрация нового специалиста
-    const reg = await fetch(BASE + '/kabinet/registraciya', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ kind: 'trener', name: 'Анна Смирнова', role: 'Тренер по плаванию', login: 'anna', password: 'password123', consent: '1' }), redirect: 'manual' });
-    ok(reg.status === 303, 'регистрация тренера');
-    const hidden = await fetch(BASE + '/trenery/anna-smirnova');
-    ok(hidden.status === 404, 'анкета на проверке не видна посетителям');
-    const admin = cookieOf(await fetch(BASE + '/kabinet/vhod', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ login: 'admin', password: PASS }), redirect: 'manual' }));
-    const modPage = await (await fetch(BASE + '/kabinet/moderaciya', { headers: { cookie: admin } })).text();
-    const acsrf = (modPage.match(/name="_csrf" value="([^"]+)"/) || [])[1];
-    await fetch(BASE + '/kabinet/moderaciya/anna-smirnova', { method: 'POST', headers: { cookie: admin, 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: acsrf, status: 'published' }), redirect: 'manual' });
-    const shown = await fetch(BASE + '/trenery/anna-smirnova');
-    ok(shown.status === 200, 'после публикации анкета видна');
-    const tr2 = await (await fetch(BASE + '/trenery')).text();
-    ok(tr2.includes('Анна Смирнова'), 'новый тренер появился в разделе');
+    // заявка с главной
+    const bad = await post('/zayavka', { specialist: 'evgeniya-shatova', from: 'home', name: 'Тест', contact: '12', consent: '1' });
+    ok(bad.status === 400, 'заявка с плохим телефоном отклонена');
+    const good = await post('/zayavka', { specialist: 'evgeniya-shatova', from: 'home', name: 'Анна', contact: '+7 900 123-45-67', goal: 'stage', message: 'Хочу на сцену', consent: '1' });
+    ok(good.status === 303 && good.headers.get('location') === '/?sent=1#zapis', 'заявка с главной принята');
+    const wait = await post('/predzapis', { offer: 'plan-pitaniya', contact: 'anna@example.com', consent: '1' });
+    ok(wait.status === 303 && wait.headers.get('location').includes('wait=1'), 'предзапись на программу');
+
+    // админ: цена, программа, уроки
+    const admin = cookieOf(await post('/kabinet/vhod', { login: 'admin', password: PASS }));
+    ok(admin.startsWith('tm_sess='), 'вход админа');
+    const edit = await (await fetch(BASE + '/kabinet/formaty/plan-pitaniya', { headers: { cookie: admin } })).text();
+    const csrf = (edit.match(/name="_csrf" value="([^"]+)"/) || [])[1];
+    const save = await post(
+      '/kabinet/formaty/plan-pitaniya',
+      {
+        _csrf: csrf,
+        title: 'План питания',
+        status: 'on_sale',
+        trainer: 'evgeniya-shatova',
+        direction: 'onlayn-trenirovki',
+        order: '12',
+        short: 'Рацион и правила',
+        packages: 'access | Доступ на год | 2990 | 3990 | | 365',
+        modules: '## Неделя 1\n### Как считать калории | https://www.youtube.com/watch?v=dQw4w9WgXcQ\nПервый абзац.\n\nВторой абзац.\n### Список продуктов\nТекст',
+      },
+      admin
+    );
+    ok(save.status === 303, 'программа сохранена с ценой и уроками');
+    const offerPage = await (await fetch(BASE + '/programmy/plan-pitaniya')).text();
+    ok(offerPage.includes('/zakaz/plan-pitaniya/access') && /2\s990\s₽/.test(offerPage), 'на странице программы есть «Купить» и цена');
+
+    // покупка без онлайн-оплаты
+    const buy = await post('/zakaz/plan-pitaniya/access', { name: 'Мария', phone: '+7 911 000-11-22', email: 'maria@example.com', password: 'secret123', consent: '1' });
+    const client = cookieOf(buy);
+    ok(buy.status === 303 && buy.headers.get('location').startsWith('/zakaz/status/') && client, 'заказ оформлен, ученик вошёл');
+    const status = await (await fetch(BASE + buy.headers.get('location'), { headers: { cookie: client } })).text();
+    ok(status.includes('Заказ принят'), 'страница статуса заказа');
+    const locked = await fetch(BASE + '/kabinet/programma/plan-pitaniya', { headers: { cookie: client }, redirect: 'manual' });
+    ok(locked.status === 303, 'до оплаты программа закрыта');
+    const orders = await (await fetch(BASE + '/kabinet/zakazy', { headers: { cookie: admin } })).text();
+    const orderId = (orders.match(/action="\/kabinet\/zakazy\/([0-9a-f]+)"/) || [])[1];
+    const paid = await post(`/kabinet/zakazy/${orderId}`, { _csrf: csrf, status: 'paid' }, admin);
+    ok(paid.status === 303, 'админ отметил оплату');
+    const lesson = await (await fetch(BASE + '/kabinet/programma/plan-pitaniya', { headers: { cookie: client } })).text();
+    ok(lesson.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ') && lesson.includes('Второй абзац'), 'после оплаты урок открыт, видео встроено');
+    const my = await (await fetch(BASE + '/kabinet/moi', { headers: { cookie: client } })).text();
+    ok(my.includes('План питания') && my.includes('доступ до'), 'программа в «Моих программах»');
+    const clientCab = await fetch(BASE + '/kabinet/zakazy', { headers: { cookie: client }, redirect: 'manual' });
+    ok(clientCab.status === 404, 'ученику недоступны заказы');
+
+    // фото: загрузка и выдача
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cf000000020001e221bc330000000049454e44ae426082', 'hex');
+    const up = await fetch(BASE + '/kabinet/media/upload?id=testphoto1&w=1&h=1&alt=test', { method: 'POST', headers: { cookie: admin, 'content-type': 'image/png', 'x-csrf-token': csrf }, body: png });
+    ok(up.status === 200, 'фото загружено');
+    const got = await fetch(BASE + '/m/testphoto1.png');
+    ok(got.status === 200 && got.headers.get('content-type') === 'image/png', 'фото отдаётся');
+    const noCsrf = await fetch(BASE + '/kabinet/media/upload?id=testphoto2&w=1&h=1', { method: 'POST', headers: { cookie: admin, 'content-type': 'image/png' }, body: png });
+    ok(noCsrf.status === 403, 'без CSRF-токена фото не загрузить');
+
+    // тренер Дарья
+    const darya = cookieOf(await post('/kabinet/vhod', { login: 'darya', password: PASS }));
+    const dl = await (await fetch(BASE + '/kabinet/zayavki', { headers: { cookie: darya } })).text();
+    ok(!dl.includes('Анна'), 'тренер видит только свои заявки');
+    const dz = await fetch(BASE + '/kabinet/formaty', { headers: { cookie: darya } });
+    ok(dz.status === 404, 'тренеру недоступно редактирование форматов');
   } catch (err) {
     console.error(err);
     failed++;
